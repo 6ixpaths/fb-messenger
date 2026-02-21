@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FB Marketplace Chat Filter — Test Page</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Segoe UI, Helvetica, Arial, sans-serif; background: #fff; }
+
+    .page-layout {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 360px;
+      border-right: 1px solid #e4e6eb;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Simulate FB's thread list structure */
+    div[aria-label="Thread list"] {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    header {
+      padding: 16px;
+      border-bottom: 1px solid #e4e6eb;
+    }
+
+    header h1 { font-size: 24px; font-weight: 700; }
+
+    div[aria-label="Chats"][role="grid"] {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    div[role="row"] {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f2f5;
+    }
+
+    div[role="row"]:hover {
+      background: #f0f2f5;
+      cursor: pointer;
+    }
+
+    div[role="gridcell"] {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #e4e6eb;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: #65676b;
+      font-size: 18px;
+    }
+
+    .thread-info { min-width: 0; }
+
+    span.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft {
+      display: block;
+      font-size: 15px;
+      font-weight: 500;
+      color: #050505;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preview {
+      font-size: 13px;
+      color: #65676b;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #65676b;
+      font-size: 18px;
+    }
+  </style>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <div class="page-layout">
+    <div class="sidebar">
+      <div aria-hidden="false" aria-label="Thread list" role="navigation">
+        <header>
+          <h1>Marketplace</h1>
+        </header>
+        <div aria-label="Chats" role="grid" id="chat-grid">
+          <!-- Threads injected by JS below -->
+        </div>
+      </div>
+    </div>
+    <div class="main-content">
+      Select a conversation to view
+    </div>
+  </div>
+
+  <script>
+    // Simulate marketplace thread data
+    const threads = [
+      { name: "Don", listing: "2009 Lexus RX 350", msg: "You: thank you", time: "4m" },
+      { name: "Nav", listing: "2016 Mazda Mazda3 GX", msg: "You: Appointments only", time: "33m" },
+      { name: "Jennifer", listing: "2014 Honda Pilot EX-L", msg: "Is it still available?", time: "34m" },
+      { name: "Singh", listing: "2014 Honda Pilot EX-L", msg: "You: Yes it is", time: "34m" },
+      { name: "Jay", listing: "2014 Honda Pilot EX-L", msg: "What's the lowest?", time: "3h" },
+      { name: "Hassan", listing: "2015 Honda Odyssey EX-L", msg: "You: $12,000 firm", time: "5h" },
+      { name: "Saleh", listing: "2016 Mazda Mazda3 GX", msg: "Can I see it today?", time: "12h" },
+      { name: "Ahmed", listing: "2016 Mazda Mazda3 GX", msg: "You: Sure, come by at 3", time: "12h" },
+      { name: "Surinder", listing: "2016 Mazda Mazda3 GX", msg: "You: Still available", time: "13h" },
+      { name: "Van", listing: "2014 Honda Pilot EX-L", msg: "Any accidents?", time: "1d" },
+      { name: "Madrasian", listing: "2011 Honda Odyssey EX-L w/ RES", msg: "You: No accidents", time: "1d" },
+      { name: "Sui", listing: "2016 Mazda Mazda3 GX", msg: "You: Yes", time: "2d" },
+      { name: "Dean", listing: "2014 Honda Pilot EX-L", msg: "How many km?", time: "2d" },
+      { name: "Marie", listing: "2016 Mazda Mazda3 GX", msg: "Is the price negotiable?", time: "3d" },
+      { name: "Zach", listing: "2016 Mazda Mazda3 GX", msg: "You: Slightly", time: "3d" },
+      { name: "JHery", listing: "2014 Honda Pilot EX-L", msg: "You: 180,000 km", time: "4d" },
+      { name: "Alex", listing: "2009 Lexus RX 350", msg: "Test drive?", time: "5d" },
+      { name: "Priya", listing: "2015 Honda Odyssey EX-L", msg: "You: Come anytime", time: "5d" },
+      { name: "Tom", listing: "2011 Honda Odyssey EX-L w/ RES", msg: "Rear entertainment works?", time: "6d" },
+      { name: "Sam", listing: "2016 Mazda Mazda3 GX", msg: "You: Yes all good", time: "1w" },
+    ];
+
+    const grid = document.getElementById("chat-grid");
+
+    threads.forEach((t, i) => {
+      const row = document.createElement("div");
+      row.setAttribute("role", "row");
+      row.className = "html-div";
+      row.innerHTML = `
+        <div role="gridcell">
+          <a href="/marketplace/t/${1000 + i}/" role="link" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;width:100%;">
+            <div class="avatar">${t.name[0]}</div>
+            <div class="thread-info">
+              <span class="x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft">${t.name} \u00b7 ${t.listing}</span>
+              <div class="preview">${t.msg} \u00b7 ${t.time}</div>
+            </div>
+          </a>
+        </div>
+      `;
+      grid.appendChild(row);
+    });
+  </script>
+  <script src="../content.js"></script>
+</body>
+</html>
