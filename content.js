@@ -18,6 +18,7 @@
   let isScrolling = false;
   let debounceTimer = null;
   let isLoading = false;
+  let isObserving = false;
 
   // ── Utility ──────────────────────────────────────────────────────────
 
@@ -360,7 +361,8 @@
 
   function observeNewThreads() {
     const grid = document.querySelector(SELECTORS.chatGrid);
-    if (!grid) return;
+    if (!grid || isObserving) return;
+    isObserving = true;
 
     const observer = new MutationObserver(() => {
       if (isScrolling || isLoading) return;
@@ -378,23 +380,11 @@
     observer.observe(grid, { childList: true, subtree: true });
   }
 
-  // ── Init ─────────────────────────────────────────────────────────────
+  // ── Target page detection ─────────────────────────────────────────────
 
-  async function init() {
-    try {
-      const threadList = await waitForElement(SELECTORS.threadList);
-      createFilterUI(threadList);
-      observeNewThreads();
-
-      await sleep(1000);
-      refreshListings();
-    } catch (err) {
-      console.error("[FB Marketplace Chat Filter]", err);
-    }
-  }
-
-  // Facebook/Messenger are SPAs — re-init on any navigation within these domains
   function isTargetPage() {
+    // Allow local test page to bypass the domain check
+    if (document.documentElement.dataset.mpFilterTest === "true") return true;
     const { hostname, pathname } = location;
     return (
       hostname === "www.messenger.com" ||
@@ -404,21 +394,40 @@
     );
   }
 
+  // ── Inject ────────────────────────────────────────────────────────────
+
+  // Attempt a single inject: if thread list is in the DOM and filter bar
+  // isn't yet, create the UI and start observing. Safe to call repeatedly.
+  function tryInject() {
+    if (!isTargetPage()) return;
+    const threadList = document.querySelector(SELECTORS.threadList);
+    if (!threadList) return;
+    createFilterUI(threadList);   // guarded by getElementById check inside
+    observeNewThreads();          // guarded by isObserving flag
+  }
+
+  // ── Heartbeat ─────────────────────────────────────────────────────────
+
+  // Polls every 1.5s so we catch the thread list regardless of when React
+  // finishes hydrating — handles initial load, hard refresh, and SPA navigation.
+  setInterval(tryInject, 1500);
+
+  // ── SPA navigation observer ───────────────────────────────────────────
+
+  // When Facebook/Messenger navigates client-side, the URL changes but the
+  // page doesn't fully reload. Reset observing flag so we re-attach after
+  // the new route renders its thread list.
   let lastUrl = location.href;
   const urlObserver = new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
-      if (isTargetPage()) {
-        setTimeout(init, 1500);
-      }
+      isObserving = false; // allow re-attaching MutationObserver on new route
     }
   });
   urlObserver.observe(document.body, { childList: true, subtree: true });
 
-  // Initial run
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  // ── Initial attempt ───────────────────────────────────────────────────
+
+  // Try immediately in case the thread list is already in the DOM.
+  tryInject();
 })();
