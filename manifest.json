@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "FB Marketplace Chat Filter",
+  "version": "1.0.0",
+  "description": "Filter Facebook Marketplace Messenger chats by listing name",
+  "permissions": [],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://www.messenger.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.facebook.com/marketplace/*",
+        "https://www.facebook.com/messages/*",
+        "https://www.messenger.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
