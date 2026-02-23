@@ -8,11 +8,9 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Segoe UI, Helvetica, Arial, sans-serif; background: #fff; }
 
-    .page-layout {
-      display: flex;
-      height: 100vh;
-    }
+    .page-layout { display: flex; height: 100vh; }
 
+    /* ── Sidebar ── */
     .sidebar {
       width: 360px;
       border-right: 1px solid #e4e6eb;
@@ -20,151 +18,392 @@
       flex-direction: column;
       overflow: hidden;
     }
-
-    /* Simulate FB's thread list structure */
     div[aria-label="Thread list"] {
       display: flex;
       flex-direction: column;
       overflow-y: auto;
       height: 100%;
     }
-
-    header {
-      padding: 16px;
-      border-bottom: 1px solid #e4e6eb;
-    }
-
+    header { padding: 16px; border-bottom: 1px solid #e4e6eb; }
     header h1 { font-size: 24px; font-weight: 700; }
-
-    div[aria-label="Chats"][role="grid"] {
-      flex: 1;
-      overflow-y: auto;
+    div[aria-label="Chats"][role="grid"] { flex: 1; overflow-y: auto; }
+    div[role="row"] { padding: 8px 12px; border-bottom: 1px solid #f0f2f5; }
+    div[role="row"]:hover { background: #f0f2f5; cursor: pointer; }
+    div[role="gridcell"] { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: #e4e6eb; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; color: #65676b; font-size: 18px;
+    }
+    .thread-info { min-width: 0; }
+    span.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft {
+      display: block; font-size: 15px; font-weight: 500; color: #050505;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .preview {
+      font-size: 13px; color: #65676b; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .section-label {
+      padding: 8px 12px 4px;
+      font-size: 12px; font-weight: 700; color: #65676b;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      background: #f7f8fa; border-bottom: 1px solid #e4e6eb;
     }
 
-    div[role="row"] {
-      padding: 8px 12px;
-      border-bottom: 1px solid #f0f2f5;
+    /* ── Main panel ── */
+    .main-panel {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden;
     }
 
-    div[role="row"]:hover {
+    /* ── Test controls ── */
+    .test-controls {
       background: #f0f2f5;
-      cursor: pointer;
+      border-bottom: 1px solid #ccd0d5;
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .test-controls h2 { font-size: 13px; font-weight: 700; color: #444; margin-bottom: 2px; }
+    .test-controls p { font-size: 12px; color: #65676b; line-height: 1.4; }
+    .test-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .test-btn {
+      padding: 5px 12px; border-radius: 6px; border: 1px solid #ccd0d5;
+      background: #fff; font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    .test-btn:hover { background: #e4e6eb; }
+    .test-btn.primary { background: #1877f2; color: #fff; border-color: #1877f2; }
+    .test-btn.primary:hover { background: #1660c7; }
+    #test-log {
+      font-size: 11px; color: #444; font-family: monospace;
+      background: #fff; border: 1px solid #ccd0d5; border-radius: 4px;
+      padding: 6px 8px; max-height: 64px; overflow-y: auto;
+      white-space: pre-wrap;
     }
 
-    div[role="gridcell"] {
-      display: flex;
-      align-items: center;
+    /* ── Mock listing page (selling-page scraper test) ── */
+    .mock-listing-page {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: none; /* toggled by JS */
+    }
+    .mock-listing-page.visible { display: block; }
+    .mock-listing-page h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+    .listing-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
       gap: 12px;
     }
+    .listing-card {
+      border: 1px solid #e4e6eb; border-radius: 8px; overflow: hidden;
+      background: #fff;
+    }
+    .listing-card-img {
+      background: #e4e6eb; height: 120px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+    }
+    .listing-card-body { padding: 8px 10px; }
+    .listing-card-title { font-size: 14px; font-weight: 600; color: #050505; }
+    .listing-card-price { font-size: 13px; color: #65676b; margin-top: 2px; }
+    .listing-card-date  { font-size: 11px; color: #8a8d91; margin-top: 3px; }
 
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: #e4e6eb;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      color: #65676b;
-      font-size: 18px;
+    /* ── Mock chat view ── */
+    .mock-chat-view {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: none;
+    }
+    .mock-chat-view.visible { display: flex; flex-direction: column; gap: 12px; }
+    .chat-header { font-size: 16px; font-weight: 600; }
+    .chat-profile-btn {
+      display: inline-block; padding: 8px 14px; border-radius: 6px;
+      border: 1px solid #ccd0d5; font-size: 13px; background: #f0f2f5;
+      cursor: pointer; font-family: inherit; width: max-content;
     }
 
-    .thread-info { min-width: 0; }
-
-    span.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft {
-      display: block;
-      font-size: 15px;
-      font-weight: 500;
-      color: #050505;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .preview {
-      font-size: 13px;
-      color: #65676b;
-      margin-top: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .main-content {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #65676b;
-      font-size: 18px;
+    /* ── Empty state ── */
+    .empty-state {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: #65676b; font-size: 16px;
     }
   </style>
   <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
-  <div class="page-layout">
-    <div class="sidebar">
-      <div aria-hidden="false" aria-label="Thread list" role="navigation">
-        <header>
-          <h1>Marketplace</h1>
-        </header>
-        <div aria-label="Chats" role="grid" id="chat-grid">
-          <!-- Threads injected by JS below -->
-        </div>
-      </div>
-    </div>
-    <div class="main-content">
-      Select a conversation to view
+<div class="page-layout">
+
+  <!-- ── Sidebar: thread list ── -->
+  <div class="sidebar">
+    <div aria-hidden="false" aria-label="Thread list" role="navigation">
+      <header><h1>Marketplace</h1></header>
+      <div aria-label="Chats" role="grid" id="chat-grid"></div>
     </div>
   </div>
 
-  <script>
-    // Simulate marketplace thread data
-    const threads = [
-      { name: "Don", listing: "2009 Lexus RX 350", msg: "You: thank you", time: "4m" },
-      { name: "Nav", listing: "2016 Mazda Mazda3 GX", msg: "You: Appointments only", time: "33m" },
-      { name: "Jennifer", listing: "2014 Honda Pilot EX-L", msg: "Is it still available?", time: "34m" },
-      { name: "Singh", listing: "2014 Honda Pilot EX-L", msg: "You: Yes it is", time: "34m" },
-      { name: "Jay", listing: "2014 Honda Pilot EX-L", msg: "What's the lowest?", time: "3h" },
-      { name: "Hassan", listing: "2015 Honda Odyssey EX-L", msg: "You: $12,000 firm", time: "5h" },
-      { name: "Saleh", listing: "2016 Mazda Mazda3 GX", msg: "Can I see it today?", time: "12h" },
-      { name: "Ahmed", listing: "2016 Mazda Mazda3 GX", msg: "You: Sure, come by at 3", time: "12h" },
-      { name: "Surinder", listing: "2016 Mazda Mazda3 GX", msg: "You: Still available", time: "13h" },
-      { name: "Van", listing: "2014 Honda Pilot EX-L", msg: "Any accidents?", time: "1d" },
-      { name: "Madrasian", listing: "2011 Honda Odyssey EX-L w/ RES", msg: "You: No accidents", time: "1d" },
-      { name: "Sui", listing: "2016 Mazda Mazda3 GX", msg: "You: Yes", time: "2d" },
-      { name: "Dean", listing: "2014 Honda Pilot EX-L", msg: "How many km?", time: "2d" },
-      { name: "Marie", listing: "2016 Mazda Mazda3 GX", msg: "Is the price negotiable?", time: "3d" },
-      { name: "Zach", listing: "2016 Mazda Mazda3 GX", msg: "You: Slightly", time: "3d" },
-      { name: "JHery", listing: "2014 Honda Pilot EX-L", msg: "You: 180,000 km", time: "4d" },
-      { name: "Alex", listing: "2009 Lexus RX 350", msg: "Test drive?", time: "5d" },
-      { name: "Priya", listing: "2015 Honda Odyssey EX-L", msg: "You: Come anytime", time: "5d" },
-      { name: "Tom", listing: "2011 Honda Odyssey EX-L w/ RES", msg: "Rear entertainment works?", time: "6d" },
-      { name: "Sam", listing: "2016 Mazda Mazda3 GX", msg: "You: Yes all good", time: "1w" },
-    ];
+  <!-- ── Main panel ── -->
+  <div class="main-panel">
 
-    const grid = document.getElementById("chat-grid");
+    <!-- Test control panel -->
+    <div class="test-controls">
+      <h2>🧪 Test Controls</h2>
+      <p>
+        <strong>Method 1 – Selling page scraper:</strong> click "Show Selling Page" to render mock listing cards,
+        then the extension will auto-detect and store them.<br>
+        <strong>Method 2 – Open-chat detection:</strong> click a selling thread below → "View buyer profile" button
+        will appear; the extension will capture and store it.<br>
+        <strong>Method 3 – Buying thread detection:</strong> click a buying thread → "View seller profile" appears.
+      </p>
+      <div class="test-btn-row">
+        <button class="test-btn primary" onclick="showSellingPage()">Show Selling Page</button>
+        <button class="test-btn" onclick="showEmptyState()">Back to Chats</button>
+        <button class="test-btn" onclick="clearStorage()">Clear Stored Listings</button>
+        <button class="test-btn" onclick="logStorage()">Log Storage</button>
+      </div>
+      <div id="test-log">Ready.</div>
+    </div>
 
-    threads.forEach((t, i) => {
-      const row = document.createElement("div");
-      row.setAttribute("role", "row");
-      row.className = "html-div";
-      row.innerHTML = `
-        <div role="gridcell">
-          <a href="/marketplace/t/${1000 + i}/" role="link" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;width:100%;">
-            <div class="avatar">${t.name[0]}</div>
-            <div class="thread-info">
-              <span class="x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft">${t.name} \u00b7 ${t.listing}</span>
-              <div class="preview">${t.msg} \u00b7 ${t.time}</div>
+    <!-- Mock selling-page view (for scraper test) -->
+    <!-- Mirrors real Facebook DOM: div[role="main"][aria-label="Collection of your marketplace items"]
+         containing div[role="button"][aria-label="LISTING_NAME"] cards and action buttons -->
+    <div class="mock-listing-page" id="mock-selling-page">
+      <div role="main" aria-label="Collection of your marketplace items">
+        <h2>Your listings</h2>
+        <div class="listing-grid" id="listing-grid"></div>
+      </div>
+    </div>
+
+    <!-- Mock chat view (for open-chat role test) -->
+    <div class="mock-chat-view" id="mock-chat-view">
+      <div class="chat-header" id="chat-header">Chat</div>
+      <div id="chat-profile-area"></div>
+    </div>
+
+    <!-- Default empty state -->
+    <div class="empty-state" id="empty-state">Select a conversation to view</div>
+
+  </div>
+</div>
+
+<script>
+  // ── Thread data ──────────────────────────────────────────────────────────
+
+  // Selling threads — user IS the seller
+  const sellingThreads = [
+    { name: "Don",       listing: "2009 Lexus RX 350",               msg: "You: thank you",           time: "4m" },
+    { name: "Nav",       listing: "2016 Mazda Mazda3 GX",            msg: "You: Appointments only",   time: "33m" },
+    { name: "Jennifer",  listing: "2014 Honda Pilot EX-L",           msg: "Is it still available?",   time: "34m" },
+    { name: "Singh",     listing: "2014 Honda Pilot EX-L",           msg: "You: Yes it is",           time: "34m" },
+    { name: "Jay",       listing: "2014 Honda Pilot EX-L",           msg: "What's the lowest?",       time: "3h" },
+    { name: "Hassan",    listing: "2015 Honda Odyssey EX-L",         msg: "You: $12,000 firm",        time: "5h" },
+    { name: "Saleh",     listing: "2016 Mazda Mazda3 GX",            msg: "Can I see it today?",      time: "12h" },
+    { name: "Ahmed",     listing: "2016 Mazda Mazda3 GX",            msg: "You: Sure, come by at 3",  time: "12h" },
+    { name: "Surinder",  listing: "2016 Mazda Mazda3 GX",            msg: "You: Still available",     time: "13h" },
+    { name: "Van",       listing: "2014 Honda Pilot EX-L",           msg: "Any accidents?",           time: "1d" },
+    { name: "Madrasian", listing: "2011 Honda Odyssey EX-L w/ RES",  msg: "You: No accidents",        time: "1d" },
+    { name: "Sui",       listing: "2016 Mazda Mazda3 GX",            msg: "You: Yes",                 time: "2d" },
+    { name: "Dean",      listing: "2014 Honda Pilot EX-L",           msg: "How many km?",             time: "2d" },
+  ];
+
+  // Buying threads — user IS the buyer
+  const buyingThreads = [
+    { name: "Mike",  listing: "2012 Toyota Camry",     msg: "Is it available?",    time: "1h" },
+    { name: "Sara",  listing: "2018 Ford F-150",       msg: "You: Yes",            time: "3h" },
+    { name: "Liam",  listing: "2020 Hyundai Elantra",  msg: "What year is it?",    time: "2d" },
+  ];
+
+  // Selling-page listings (mirrors the selling threads above).
+  // listedOn mirrors the real Facebook "Listed on M/D" text scraped from the selling page.
+  // "2016 Mazda Mazda3 GX" is intentionally set to 2/20 so Sui's "2d" thread (Feb 19)
+  // pre-dates the listing — demonstrating auto-scroll stopping at the listing date.
+  const sellingPageListings = [
+    { title: "2009 Lexus RX 350",              price: "$9,500",  emoji: "🚗", listedOn: "2/1"  },
+    { title: "2014 Honda Pilot EX-L",          price: "$14,200", emoji: "🚙", listedOn: "2/9"  },
+    { title: "2015 Honda Odyssey EX-L",        price: "$12,000", emoji: "🚐", listedOn: "1/15" },
+    { title: "2011 Honda Odyssey EX-L w/ RES", price: "$10,500", emoji: "🚌", listedOn: "1/3"  },
+    { title: "2016 Mazda Mazda3 GX",           price: "$11,900", emoji: "🏎️",  listedOn: "2/20" },
+  ];
+
+  // ── Build thread list ─────────────────────────────────────────────────────
+
+  const grid = document.getElementById("chat-grid");
+  let idCounter = 1000;
+
+  /**
+   * Converts a relative time string ("4m", "3h", "1d") to an ISO 8601 datetime
+   * string so the extension can read it from <time datetime="...">.
+   */
+  function timeStrToISO(t) {
+    const now = Date.now();
+    const m = t.match(/^(\d+)(m|h|d)$/);
+    if (!m) return new Date(now).toISOString();
+    const v = parseInt(m[1], 10);
+    const ms = m[2] === "m" ? v * 60_000 : m[2] === "h" ? v * 3_600_000 : v * 86_400_000;
+    return new Date(now - ms).toISOString();
+  }
+
+  function makeRow(t, role) {
+    const row = document.createElement("div");
+    row.setAttribute("role", "row");
+    row.dataset.threadRole = role; // 'selling' | 'buying'
+    row.dataset.listingName = t.listing;
+    row.innerHTML = `
+      <div role="gridcell">
+        <a href="/marketplace/t/${idCounter++}/" role="link"
+           style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;width:100%;"
+           onclick="openChat('${t.name}','${t.listing}','${role}'); return false;">
+          <div class="avatar">${t.name[0]}</div>
+          <div class="thread-info">
+            <span class="x1lliihq x193iq5w x6ikm8r x10wlt62 xlyipyv xuxw1ft">${t.name} \u00b7 ${t.listing}</span>
+            <div class="preview">
+              ${t.msg} \u00b7
+              <time datetime="${timeStrToISO(t.time)}" style="font-size:inherit;color:inherit;">${t.time}</time>
             </div>
-          </a>
-        </div>
-      `;
-      grid.appendChild(row);
+          </div>
+        </a>
+      </div>`;
+    return row;
+  }
+
+  const sellingLabel = document.createElement("div");
+  sellingLabel.className = "section-label";
+  sellingLabel.textContent = "Selling";
+  grid.appendChild(sellingLabel);
+  sellingThreads.forEach(t => grid.appendChild(makeRow(t, "selling")));
+
+  const buyingLabel = document.createElement("div");
+  buyingLabel.className = "section-label";
+  buyingLabel.textContent = "Buying"; // Must stay as "Buying" for boundary detection
+  grid.appendChild(buyingLabel);
+  buyingThreads.forEach(t => grid.appendChild(makeRow(t, "buying")));
+
+  // ── Build selling-page mock ───────────────────────────────────────────────
+  // Mirrors the real Facebook selling page DOM structure:
+  //   div[role="main"][aria-label="Collection of your marketplace items"]
+  //     > div[role="button"][aria-label="LISTING_NAME"]          (listing card)
+  //     > div[role="button"][aria-label="Mark as sold LISTING"]  (action btn)
+  //     > div[role="button"][aria-label="Share LISTING"]          (action btn)
+  //     > div[role="button"][aria-label="More options for LISTING"] (action btn)
+
+  const listingGrid = document.getElementById("listing-grid");
+  sellingPageListings.forEach(l => {
+    // Primary listing card (the one the extension scrapes)
+    const card = document.createElement("div");
+    card.className = "listing-card";
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", l.title);
+    card.setAttribute("tabindex", "0");
+    // The extension reads "Listed on X/Y" from btn.textContent (same as real Facebook)
+    card.innerHTML = `
+      <div class="listing-card-img">${l.emoji}</div>
+      <div class="listing-card-body">
+        <div class="listing-card-title">${l.title}</div>
+        <div class="listing-card-price">${l.price}</div>
+        <div class="listing-card-date">Active · Listed on ${l.listedOn}</div>
+      </div>`;
+    listingGrid.appendChild(card);
+
+    // Action buttons (should be filtered out by ACTION_PREFIXES)
+    const actions = [`Mark as sold ${l.title}`, `Share ${l.title}`, `More options for ${l.title}`];
+    for (const actionLabel of actions) {
+      const actionBtn = document.createElement("div");
+      actionBtn.setAttribute("role", "button");
+      actionBtn.setAttribute("aria-label", actionLabel);
+      actionBtn.setAttribute("tabindex", "0");
+      actionBtn.style.display = "none"; // hidden in test UI but present in DOM
+      listingGrid.appendChild(actionBtn);
+    }
+  });
+
+  // ── Panel switching ───────────────────────────────────────────────────────
+
+  function showSellingPage() {
+    document.getElementById("mock-selling-page").classList.add("visible");
+    document.getElementById("mock-chat-view").classList.remove("visible");
+    document.getElementById("empty-state").style.display = "none";
+    // Simulate being on /marketplace/you/selling so the extension scraper fires.
+    // The extension checks location.pathname, so we spoof it via history.
+    history.pushState({}, "", "/marketplace/you/selling?state=LIVE");
+    log("Navigated to mock selling page. Extension should scrape in ~1.5s.");
+  }
+
+  function showEmptyState() {
+    document.getElementById("mock-selling-page").classList.remove("visible");
+    document.getElementById("mock-chat-view").classList.remove("visible");
+    document.getElementById("empty-state").style.display = "";
+    history.pushState({}, "", "/test/");
+    log("Back to chats view.");
+  }
+
+  function openChat(name, listing, role) {
+    document.getElementById("mock-selling-page").classList.remove("visible");
+    document.getElementById("empty-state").style.display = "none";
+    const chatView = document.getElementById("mock-chat-view");
+    chatView.classList.add("visible");
+    document.getElementById("chat-header").textContent = `${name} · ${listing}`;
+
+    // Mark the matching thread link as aria-current="page" so captureOpenChatListing()
+    // can identify which thread is active (mirrors Facebook's behaviour).
+    document.querySelectorAll('a[href*="/marketplace/t/"]').forEach(a => {
+      a.removeAttribute("aria-current");
     });
-  </script>
-  <script src="../content.js"></script>
+    const matchingRow = Array.from(document.querySelectorAll('#chat-grid div[role="row"]'))
+      .find(row => row.dataset.listingName === listing && row.dataset.threadRole === role);
+    if (matchingRow) {
+      const link = matchingRow.querySelector('a[href*="/marketplace/t/"]');
+      if (link) link.setAttribute("aria-current", "page");
+    }
+
+    const profileLabel = role === "selling" ? "View buyer profile" : "View seller profile";
+    document.getElementById("chat-profile-area").innerHTML = `
+      <p style="font-size:13px;color:#65676b;margin-bottom:8px;">
+        Mock chat with ${name} about <strong>${listing}</strong>
+        (you are the ${role === "selling" ? "seller" : "buyer"}).
+      </p>
+      <!-- role="presentation" mirrors Facebook's chat panel wrapper -->
+      <div role="presentation">
+        <button class="chat-profile-btn"
+          onclick="log('Extension detected: ${profileLabel} → storage will update in ~1.5s')">
+          ${profileLabel}
+        </button>
+      </div>`;
+
+    log(`Opened: ${name} · ${listing} (${role}). Heartbeat will detect "${profileLabel}" in ~1.5s.`);
+  }
+
+  // ── Storage helpers ───────────────────────────────────────────────────────
+
+  function clearStorage() {
+    const prefix = "__mpf_";
+    Object.keys(sessionStorage)
+      .filter(k => k.startsWith(prefix))
+      .forEach(k => sessionStorage.removeItem(k));
+    log("Storage cleared. Reload the page to see the unfiltered state.");
+  }
+
+  function logStorage() {
+    const key = "__mpf_mp_filter_listings_v1";
+    const raw = sessionStorage.getItem(key);
+    if (!raw) {
+      log("Storage is empty. Visit the selling page first.");
+    } else {
+      try {
+        const data = JSON.parse(raw);
+        const sellingStr = data.selling
+          .map(e => typeof e === "string" ? e : `${e.name} [${e.listedOn || "no date"}]`)
+          .join(", ");
+        const buyingStr = (data.buying || []).join(", ") || "(none)";
+        log(`Stored selling (${data.selling.length}): ${sellingStr}`
+          + `\nStored buying (${data.buying.length}): ${buyingStr}`);
+      } catch {
+        log("Storage: " + raw);
+      }
+    }
+  }
+
+  function log(msg) {
+    const el = document.getElementById("test-log");
+    el.textContent = msg;
+  }
+</script>
+<script src="../content.js"></script>
 </body>
 </html>

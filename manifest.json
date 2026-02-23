@@ -3,7 +3,7 @@
   "name": "FB Marketplace Chat Filter",
   "version": "1.0.0",
   "description": "Filter Facebook Marketplace Messenger chats by listing name",
-  "permissions": [],
+  "permissions": ["storage"],
   "host_permissions": [
     "https://www.facebook.com/*",
     "https://www.messenger.com/*"

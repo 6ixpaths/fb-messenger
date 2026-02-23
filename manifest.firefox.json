@@ -6,10 +6,11 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "fb-marketplace-chat-filter@example.com",
-      "strict_min_version": "109.0"
+      "strict_min_version": "115.0"
     }
   },
   "permissions": [
+    "storage",
     "https://www.facebook.com/*",
     "https://www.messenger.com/*"
   ],

@@ -9,6 +9,8 @@
   }
 }
 
+/* ── Filter bar ────────────────────────────────────────────────────────── */
+
 #mp-chat-filter {
   display: flex;
   align-items: center;
@@ -24,20 +26,42 @@
 
 /* Loading state — dim controls and show spinner */
 #mp-chat-filter[data-loading="true"] #mp-chat-filter-select,
-#mp-chat-filter[data-loading="true"] #mp-chat-filter-refresh,
-#mp-chat-filter[data-loading="true"] #mp-chat-filter-load {
+#mp-chat-filter[data-loading="true"] #mp-chat-filter-info {
   opacity: 0.5;
-  cursor: wait;
 }
 
 #mp-chat-filter[data-loading="true"] #mp-chat-filter-spinner {
   display: inline-block;
 }
 
-#mp-chat-filter[data-loading="true"] #mp-chat-filter-status {
-  font-weight: 500;
-  color: var(--primary-text, #050505);
+/* ── Info element (shown when no selling data is loaded) ──────────────── */
+
+#mp-chat-filter-info {
+  flex: 1;
+  font-size: 12px;
+  color: var(--secondary-text, #65676b);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+/* ── Info link (opens selling page in new tab) ───────────────────────── */
+
+#mp-chat-filter-info-link {
+  color: #1877f2;
+  text-decoration: underline;
+  text-decoration-color: rgba(24, 119, 242, 0.4);
+  white-space: nowrap;
+  font-style: normal;
+}
+
+#mp-chat-filter-info-link:hover {
+  color: #1558b0;
+  text-decoration-color: #1558b0;
+}
+
+/* ── Dropdown ─────────────────────────────────────────────────────────── */
 
 #mp-chat-filter-select {
   flex: 1;
@@ -75,38 +99,8 @@
   cursor: not-allowed;
 }
 
-#mp-chat-filter-refresh,
-#mp-chat-filter-load {
-  padding: 6px 10px;
-  border: 1px solid var(--media-inner-border, #ccd0d5);
-  border-radius: 6px;
-  background: var(--wash, #f0f2f5);
-  color: var(--primary-text, #050505);
-  font-size: 13px;
-  font-family: Segoe UI, Helvetica, Arial, sans-serif;
-  cursor: pointer;
-  white-space: nowrap;
-  line-height: 1;
-  transition: background-color 0.2s ease, opacity 0.2s ease;
-}
+/* ── Loading spinner ──────────────────────────────────────────────────── */
 
-#mp-chat-filter-refresh:hover:not(:disabled),
-#mp-chat-filter-load:hover:not(:disabled) {
-  background: var(--hover-overlay, #e4e6eb);
-}
-
-#mp-chat-filter-refresh:disabled,
-#mp-chat-filter-load:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-#mp-chat-filter-refresh {
-  font-size: 16px;
-  padding: 4px 8px;
-}
-
-/* Loading spinner */
 #mp-chat-filter-spinner {
   display: none;
   width: 16px;
@@ -118,12 +112,19 @@
   flex-shrink: 0;
 }
 
+/* ── Status line (block element below the filter bar) ────────────────── */
+
 #mp-chat-filter-status {
+  display: block;
+  margin: 0;
+  padding: 3px 12px 4px;
   font-size: 11px;
+  line-height: 1.4;
   color: var(--secondary-text, #65676b);
+  background: var(--surface-background, #ffffff);
+  border-bottom: 1px solid var(--media-inner-border, #e4e6eb);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px;
-  transition: color 0.2s ease;
+  flex-shrink: 0;
 }
