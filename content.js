@@ -778,6 +778,24 @@
     } else if (isMessagingPage()) {
       tryInject();
       captureOpenChatListing(); // classify the currently open chat if role is detectable
+
+      // Poll for the session flag on every tick while it hasn't been found yet.
+      // This is the primary cross-tab activation path for Firefox, where
+      // storage.onChanged does not fire in content scripts.
+      // Once the flag is found the guard short-circuits and no further reads occur.
+      if (!sellingPageVisitedThisSession) {
+        Promise.all([
+          _storage.get(SESSION_FLAG_KEY),
+          readPersistedListings(),
+        ]).then(([flagData, stored]) => {
+          const ts = flagData[SESSION_FLAG_KEY];
+          if (ts && (Date.now() - ts) < 8 * 3600 * 1000) {
+            storedSellingListings = normalizeSelling(stored.selling);
+            sellingPageVisitedThisSession = true;
+            refreshListings();
+          }
+        }).catch(() => {});
+      }
     }
   }, 1500);
 
