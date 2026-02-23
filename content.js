@@ -287,8 +287,16 @@
 
   /**
    * When a chat is open, call this to capture its role (selling/buying) and
-   * store the listing name appropriately.  Updates storage so the messenger
-   * filter stays accurate even without a selling-page visit.
+   * update the buying list in storage.
+   *
+   * When scraper data already exists (storedSellingListings.length > 0) the
+   * selling list is left untouched — the scraper is the authoritative source
+   * and chat-capture must not accumulate historical selling listings on top
+   * of it (which would eventually inflate the dropdown with old/sold items).
+   *
+   * When no scraper data exists (user has not visited the selling page yet),
+   * chat-capture acts as a fallback and may add newly-discovered selling
+   * listings so the dropdown has something to show.
    */
   async function captureOpenChatListing() {
     const role = getOpenChatRole();
@@ -318,11 +326,18 @@
     );
     const buying = new Set(stored.buying || []);
 
+    // True when the selling-page scraper has already run and is the
+    // authoritative source of selling listings.
+    const hasScraperData = storedSellingListings && storedSellingListings.length > 0;
+
     if (role === "selling") {
-      // Only add if not already known (preserve any listedOn from scrape)
-      if (!sellingMap.has(listing.toLowerCase())) {
-        sellingMap.set(listing.toLowerCase(), { name: listing, listedOn: null });
+      if (!hasScraperData) {
+        // Fallback: no scraper data yet — allow chat-capture to populate selling list
+        if (!sellingMap.has(listing.toLowerCase())) {
+          sellingMap.set(listing.toLowerCase(), { name: listing, listedOn: null });
+        }
       }
+      // Always remove from buying if newly confirmed as a selling thread
       buying.delete(listing);
     } else {
       sellingMap.delete(listing.toLowerCase());
@@ -334,8 +349,8 @@
 
     await persistListings({ selling: newSelling, buying: newBuying });
 
-    // Update in-memory state if the listing is new (case-insensitive check)
-    if (role === "selling") {
+    // Update in-memory state only when scraper hasn't run (fallback path)
+    if (role === "selling" && !hasScraperData) {
       const alreadyKnown =
         storedSellingListings !== null &&
         storedSellingListings.some(
@@ -428,31 +443,18 @@
   }
 
   /**
-   * Returns sorted unique listing names (strings) for the SELLING side only.
+   * Returns sorted listing names (strings) for the dropdown — exclusively
+   * from the selling-page scraper data stored in storedSellingListings.
    *
-   * The dropdown STRICTLY shows only selling listings:
-   *   - When stored selling data exists → intersect thread listings with
-   *     stored selling names (case-insensitive comparison).
-   *   - When no selling data exists → return empty array (the UI will
-   *     prompt the user to visit the selling page).
+   * Threads are NOT used to build the dropdown option list; they are used
+   * only for the per-listing chat counts rendered inside refreshListings().
+   * This ensures the dropdown always reflects what is actually on the
+   * user's selling page, never historical or accumulated chat data.
    */
   function getUniqueListings() {
-    const items = getThreadItems();
-    const allInThreads = new Set();
-    for (const item of items) {
-      const listing = extractListingName(parseThreadName(item));
-      if (listing) allInThreads.add(listing);
-    }
-
-    const sellSetLower = buildSellSetLower();
-    if (sellSetLower) {
-      return Array.from(allInThreads)
-        .filter((l) => sellSetLower.has(l.toLowerCase()))
-        .sort();
-    }
-
-    // No stored selling data — return empty so the UI shows a prompt
-    return [];
+    if (!sellingPageVisitedThisSession) return [];
+    if (!storedSellingListings || storedSellingListings.length === 0) return [];
+    return storedSellingListings.map((l) => l.name).sort();
   }
 
   /**
@@ -624,10 +626,8 @@
 
     const allOpt = document.createElement("option");
     allOpt.value = "";
-    allOpt.textContent =
-      listings.length > 0
-        ? `My Listings (${listings.length})`
-        : "My Listings (no matching threads)";
+    // listings.length === storedSellingListings.length (scraper count)
+    allOpt.textContent = `My Listings (${listings.length})`;
     select.appendChild(allOpt);
 
     for (const listing of listings) {
