@@ -186,9 +186,6 @@
     const buttons = main.querySelectorAll(SELECTORS.sellingPageBtn);
     if (buttons.length === 0) return; // cards not rendered yet
 
-    hasScrapedSellingPage = true;
-    markSellingPageVisited(); // idempotent — may already be set via URL detection
-
     const listingMap = new Map(); // name (string) → listedOn (string|null)
 
     for (const btn of buttons) {
@@ -196,13 +193,29 @@
       if (label.length <= 2) continue;
       if (ACTION_PREFIXES.some((p) => label.startsWith(p))) continue;
 
+      // Require the "Listed on" date as the positive signal that this button
+      // is a real listing card. This eliminates:
+      //   • UI chrome buttons inside the container (List View, Grid View,
+      //     Filters, New message) — no "Listed on" text.
+      //   • Thumbnail/image-wrapper buttons that share the listing's
+      //     aria-label but have empty textContent — no "Listed on" text.
+      //   • Any future action-button types Facebook adds that aren't yet
+      //     in ACTION_PREFIXES — they will also lack "Listed on" text.
+      const m = btn.textContent.match(/Listed on (\d+\/\d+(?:\/\d+)?)/);
+      if (!m) continue; // not a listing card
+
       if (!listingMap.has(label)) {
-        // "Listed on 2/9" or "Listed on 12/17/2025" appears as a text node
-        // directly inside a span, so btn.textContent captures it reliably.
-        const m = btn.textContent.match(/Listed on (\d+\/\d+(?:\/\d+)?)/);
-        listingMap.set(label, m ? m[1] : null);
+        listingMap.set(label, m[1]);
       }
     }
+
+    // If no listing cards passed the "Listed on" guard, the page is still
+    // hydrating (only UI chrome buttons have rendered so far). Defer — do NOT
+    // set the guard flag here, so the next heartbeat tick can retry.
+    if (listingMap.size === 0) return;
+
+    hasScrapedSellingPage = true;
+    markSellingPageVisited(); // idempotent — may already be set via URL detection
 
     const selling = Array.from(listingMap.entries()).map(([name, listedOn]) => ({
       name,
