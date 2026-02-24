@@ -616,10 +616,15 @@
           shouldShow = true;
         }
       } else if (listing) {
-        // Specific listing selected: case-insensitive match
+        // Specific listing selected: name must match AND thread must not be
+        // a buying conversation (DOM-classified buying threads are excluded;
+        // inconclusive threads are kept — they matched the selling listing name).
+        const domResultSell = isBuyingThread(row);
+        const isNotBuying = domResultSell !== null ? !domResultSell : true;
         shouldShow =
           !!rowListing &&
-          rowListing.toLowerCase() === listing.toLowerCase();
+          rowListing.toLowerCase() === listing.toLowerCase() &&
+          isNotBuying;
       } else if (sellSetLower) {
         // "All Listings" with stored data: show only selling threads
         shouldShow =
@@ -817,10 +822,12 @@
     select.appendChild(allOpt);
 
     for (const listing of listings) {
-      // Case-insensitive count: thread listing may differ in case from stored name
-      const count = getThreadItems().filter((item) => {
-        const l = extractListingName(parseThreadName(item));
-        return l && l.toLowerCase() === listing.toLowerCase();
+      // Case-insensitive count: exclude confirmed buying threads (same logic as applyFilter)
+      const count = getThreadItems().filter(({ row }) => {
+        const l = extractListingName(parseThreadName({ row }));
+        if (!l || l.toLowerCase() !== listing.toLowerCase()) return false;
+        const domResult = isBuyingThread(row);
+        return domResult !== null ? !domResult : true;
       }).length;
 
       const opt = document.createElement("option");
