@@ -503,7 +503,11 @@
       const rowListing = extractListingName(parseThreadName({ row }));
       let shouldShow;
 
-      if (listing) {
+      if (listing === "BUYING_LISTINGS") {
+        // Buying Listings filter: show threads NOT in selling set
+        shouldShow =
+          !rowListing || !sellSetLower || !sellSetLower.has(rowListing.toLowerCase());
+      } else if (listing) {
         // Specific listing selected: case-insensitive match
         shouldShow =
           !!rowListing &&
@@ -521,7 +525,9 @@
       if (shouldShow) visibleCount++;
     }
 
-    if (listing) {
+    if (listing === "BUYING_LISTINGS") {
+      updateStatus(`Showing ${visibleCount} buying chat(s)`);
+    } else if (listing) {
       updateStatus(`Showing ${visibleCount} chat(s) for "${listing}"`);
     } else {
       updateStatus(
@@ -643,6 +649,18 @@
       select.appendChild(opt);
     }
 
+    // Add "Buying Listings" option
+    const sellSetLower = buildSellSetLower();
+    const buyingCount = getThreadItems().filter((item) => {
+      const l = extractListingName(parseThreadName(item));
+      return !l || !sellSetLower || !sellSetLower.has(l.toLowerCase());
+    }).length;
+
+    const buyingOpt = document.createElement("option");
+    buyingOpt.value = "BUYING_LISTINGS";
+    buyingOpt.textContent = `Buying Listings (${buyingCount})`;
+    select.appendChild(buyingOpt);
+
     if (isLoading) {
       isLoading = false;
       select.disabled = false;
@@ -655,7 +673,10 @@
     const filterLower = (currentFilter || "").toLowerCase();
     const matchFilter = listings.find((l) => l.toLowerCase() === filterLower);
 
-    if (matchPrev) {
+    if (previousValue === "BUYING_LISTINGS") {
+      select.value = "BUYING_LISTINGS";
+      applyFilter("BUYING_LISTINGS");
+    } else if (matchPrev) {
       select.value = matchPrev;
       applyFilter(matchPrev);
     } else if (matchFilter) {
