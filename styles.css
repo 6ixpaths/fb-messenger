@@ -13,8 +13,8 @@
 
 #mp-chat-filter {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 0;
   padding: 8px 12px;
   background: var(--surface-background, #ffffff);
   border-bottom: 1px solid var(--media-inner-border, #e4e6eb);
@@ -22,6 +22,13 @@
   top: 0;
   z-index: 10;
   flex-shrink: 0;
+}
+
+/* Row 1: info element / dropdown / spinner */
+#mp-chat-filter-row1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Loading state — dim controls and show spinner */
@@ -110,6 +117,62 @@
   border-radius: 50%;
   animation: mp-spin 0.8s linear infinite;
   flex-shrink: 0;
+}
+
+/* ── Buying search row (inside #mp-chat-filter, below the dropdown row) ─ */
+
+#mp-chat-filter-search-row {
+  margin-top: 6px;
+}
+
+#mp-chat-filter-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+#mp-chat-filter-search {
+  width: 100%;
+  padding: 6px 32px 6px 12px;
+  border: 1px solid var(--media-inner-border, #ccd0d5);
+  border-radius: 20px;
+  background: var(--wash, #f0f2f5);
+  color: var(--primary-text, #050505);
+  font-size: 13px;
+  font-family: Segoe UI, Helvetica, Arial, sans-serif;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#mp-chat-filter-search:focus {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.2);
+  background: var(--surface-background, #ffffff);
+}
+
+#mp-chat-filter-search-clear {
+  position: absolute;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  background: var(--secondary-text, #65676b);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+#mp-chat-filter-search-clear:hover {
+  background: var(--primary-text, #050505);
 }
 
 /* ── Status line (block element below the filter bar) ────────────────── */
