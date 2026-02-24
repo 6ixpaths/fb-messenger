@@ -26,6 +26,7 @@
 
   const SEPARATOR = " \u00b7 "; // " · "
   const STORAGE_KEY = "mp_filter_listings_v1";
+  const BUYING_SCROLL_TARGET = 75; // DOM rows to load before applying buying filter
   // Stored in chrome.storage.local with a timestamp; 8-hour TTL approximates
   // "browser session" semantics without requiring chrome.storage.session
   // (which is not reliably accessible from content scripts).
@@ -35,6 +36,7 @@
 
   let filterContainer = null;
   let currentFilter = null;
+  let buyingSearchQuery = "";
   let debounceTimer = null;
   let isLoading = false;
   let isObserving = false;
@@ -481,6 +483,54 @@
     return Array.from(buying).sort();
   }
 
+  // ── Buying-filter scroll loader ────────────────────────────────────────
+
+  /**
+   * Scrolls the thread list upward to trigger Facebook's lazy loader until
+   * BUYING_SCROLL_TARGET total thread rows are present in the DOM.
+   * Called before the buying filter is applied so there's a meaningful pool
+   * of buying chats to search through.
+   * Bails early when the scroll container stops moving (list fully loaded).
+   */
+  async function scrollToLoadBuyingThreads() {
+    const grid = document.querySelector(SELECTORS.chatGrid);
+    if (!grid) return;
+
+    // Walk up the DOM to find the first ancestor that is actually scrollable.
+    function findScrollEl(el) {
+      let e = el.parentElement;
+      while (e && e !== document.documentElement) {
+        const ov = window.getComputedStyle(e).overflowY;
+        if ((ov === "auto" || ov === "scroll") && e.scrollHeight > e.clientHeight) {
+          return e;
+        }
+        e = e.parentElement;
+      }
+      return null;
+    }
+
+    const scrollEl = findScrollEl(grid);
+    if (!scrollEl) return;
+
+    const MAX_ATTEMPTS = 30;
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      // Count all thread rows currently in the DOM (visible or not).
+      const links = grid.querySelectorAll(SELECTORS.threadLink);
+      const seen = new Set();
+      for (const link of links) {
+        const row = link.closest('div[role="row"]');
+        if (row) seen.add(row);
+      }
+      if (seen.size >= BUYING_SCROLL_TARGET) break;
+
+      const before = scrollEl.scrollTop;
+      scrollEl.scrollTop += 600;
+      await sleep(350);
+      if (scrollEl.scrollTop <= before) break; // reached bottom or unmovable
+    }
+  }
+
   // ── Filtering ──────────────────────────────────────────────────────────
 
   function applyFilter(listing) {
@@ -504,9 +554,20 @@
       let shouldShow;
 
       if (listing === "BUYING_LISTINGS") {
-        // Buying Listings filter: show threads NOT in selling set
-        shouldShow =
+        // Buying Listings filter: threads NOT in selling set, optionally
+        // narrowed by the search query (case-insensitive substring match).
+        const isNotSelling =
           !rowListing || !sellSetLower || !sellSetLower.has(rowListing.toLowerCase());
+        const q = buyingSearchQuery.trim().toLowerCase();
+        if (!isNotSelling) {
+          shouldShow = false;
+        } else if (q) {
+          // Only show threads whose listing name contains the query.
+          // Threads with no listing name are hidden when a query is active.
+          shouldShow = !!(rowListing && rowListing.toLowerCase().includes(q));
+        } else {
+          shouldShow = true;
+        }
       } else if (listing) {
         // Specific listing selected: case-insensitive match
         shouldShow =
@@ -526,7 +587,12 @@
     }
 
     if (listing === "BUYING_LISTINGS") {
-      updateStatus(`Showing ${visibleCount} buying chat(s)`);
+      const q = buyingSearchQuery.trim();
+      updateStatus(
+        q
+          ? `Showing ${visibleCount} result(s) for "${q}"`
+          : `Showing ${visibleCount} buying chat(s)`
+      );
     } else if (listing) {
       updateStatus(`Showing ${visibleCount} chat(s) for "${listing}"`);
     } else {
@@ -565,9 +631,30 @@
     select.id = "mp-chat-filter-select";
     select.disabled = true;
     select.style.display = "none"; // hidden until selling data is loaded
-    select.addEventListener("change", (e) => {
-      const val = e.target.value || null;
-      applyFilter(val);
+    select.addEventListener("change", async (e) => {
+      const val = e.target.value;
+      const isBuying = val === "BUYING_LISTINGS";
+
+      // Show / hide the search row
+      const sr = document.getElementById("mp-chat-filter-search-row");
+      if (sr) sr.style.display = isBuying ? "" : "none";
+
+      // Clear search state when leaving the buying filter
+      if (!isBuying) {
+        buyingSearchQuery = "";
+        const inp = document.getElementById("mp-chat-filter-search");
+        if (inp) inp.value = "";
+        const clr = document.getElementById("mp-chat-filter-search-clear");
+        if (clr) clr.style.display = "none";
+      }
+
+      if (isBuying) {
+        // Scroll to pre-load threads before filtering so the search pool is full
+        await scrollToLoadBuyingThreads();
+        applyFilter("BUYING_LISTINGS");
+      } else {
+        applyFilter(val || null);
+      }
       // Method 2: classify the currently open chat when a filter option is picked
       captureOpenChatListing();
     });
@@ -580,9 +667,55 @@
     spinner.id = "mp-chat-filter-spinner";
     spinner.className = "mp-spinner";
 
-    filterContainer.appendChild(info);
-    filterContainer.appendChild(select);
-    filterContainer.appendChild(spinner);
+    // ── Row 1: dropdown controls (info | select | spinner) ──
+    const row1 = document.createElement("div");
+    row1.id = "mp-chat-filter-row1";
+    row1.appendChild(info);
+    row1.appendChild(select);
+    row1.appendChild(spinner);
+
+    // ── Search row: visible only when Buying Listings is selected ──
+    const searchRow = document.createElement("div");
+    searchRow.id = "mp-chat-filter-search-row";
+    searchRow.style.display = "none";
+
+    const searchWrap = document.createElement("div");
+    searchWrap.id = "mp-chat-filter-search-wrap";
+
+    const searchInput = document.createElement("input");
+    searchInput.id = "mp-chat-filter-search";
+    searchInput.type = "text";
+    searchInput.placeholder = "Search buying chats\u2026";
+    searchInput.autocomplete = "off";
+    searchInput.spellcheck = false;
+
+    const clearBtn = document.createElement("button");
+    clearBtn.id = "mp-chat-filter-search-clear";
+    clearBtn.type = "button";
+    clearBtn.textContent = "\u00d7"; // ×
+    clearBtn.setAttribute("aria-label", "Clear search");
+    clearBtn.style.display = "none";
+
+    searchInput.addEventListener("input", () => {
+      buyingSearchQuery = searchInput.value;
+      clearBtn.style.display = buyingSearchQuery ? "" : "none";
+      applyFilter("BUYING_LISTINGS");
+    });
+
+    clearBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      buyingSearchQuery = "";
+      clearBtn.style.display = "none";
+      searchInput.focus();
+      applyFilter("BUYING_LISTINGS");
+    });
+
+    searchWrap.appendChild(searchInput);
+    searchWrap.appendChild(clearBtn);
+    searchRow.appendChild(searchWrap);
+
+    filterContainer.appendChild(row1);
+    filterContainer.appendChild(searchRow);
 
     // ── Status: block element inserted directly BELOW the filter bar ──
     const status = document.createElement("p");
@@ -675,6 +808,8 @@
 
     if (previousValue === "BUYING_LISTINGS") {
       select.value = "BUYING_LISTINGS";
+      const sr = document.getElementById("mp-chat-filter-search-row");
+      if (sr) sr.style.display = "";
       applyFilter("BUYING_LISTINGS");
     } else if (matchPrev) {
       select.value = matchPrev;
