@@ -483,6 +483,49 @@
     return Array.from(buying).sort();
   }
 
+  // ── Buying / selling thread classifier ────────────────────────────────
+
+  /**
+   * Classifies a thread row as buying or selling using DOM structural signals.
+   *
+   * Signal 1 — img src URL (fastest; present as soon as the thumbnail loads):
+   *   s133x133 = square crop (profile-sized thumbnail) = buying
+   *   s296x100 = landscape crop (listing photo)        = selling
+   *
+   * Signal 2 — img count (user-confirmed from live DOM inspection):
+   *   ≥ 2 <img> in the row = buying (listing thumbnail + seller profile overlay)
+   *   1  <img> in the row  = selling (listing photo only)
+   *
+   * Signal 3 — structural overlay div inside the <a> element:
+   *   div[data-visualcompletion="ignore"][style*="inset"] inside the link
+   *   = buying (full-row click-overlay unique to buying thread cards)
+   *
+   * Returns true (buying) | false (selling) | null (inconclusive).
+   * When null the caller should fall back to selling-set negation.
+   */
+  function isBuyingThread(row) {
+    const link = row.querySelector('a[href*="/marketplace/t/"]');
+    if (!link) return false; // not a marketplace thread
+
+    // Signal 1: thumbnail image src URL aspect-ratio hint
+    const img = link.querySelector("img");
+    if (img) {
+      const src = img.getAttribute("src") || "";
+      if (src.includes("s133x133")) return true;  // square  → buying
+      if (src.includes("s296x100")) return false; // landscape → selling
+    }
+
+    // Signal 2: total <img> count in the row
+    if (row.querySelectorAll("img").length >= 2) return true;
+
+    // Signal 3: full-row hover-overlay div inside <a> (buying-card specific)
+    if (link.querySelector('[data-visualcompletion="ignore"][style*="inset"]')) {
+      return true;
+    }
+
+    return null; // inconclusive — caller uses selling-set fallback
+  }
+
   // ── Buying-filter scroll loader ────────────────────────────────────────
 
   /**
@@ -554,12 +597,16 @@
       let shouldShow;
 
       if (listing === "BUYING_LISTINGS") {
-        // Buying Listings filter: threads NOT in selling set, optionally
-        // narrowed by the search query (case-insensitive substring match).
-        const isNotSelling =
-          !rowListing || !sellSetLower || !sellSetLower.has(rowListing.toLowerCase());
+        // Buying Listings filter: threads classified as buying by DOM structure,
+        // with selling-set negation as a last-resort fallback.
+        // Optionally narrowed by the search query (case-insensitive substring).
+        const domResult = isBuyingThread(row);
+        const isBuying =
+          domResult !== null
+            ? domResult
+            : !rowListing || !sellSetLower || !sellSetLower.has(rowListing.toLowerCase());
         const q = buyingSearchQuery.trim().toLowerCase();
-        if (!isNotSelling) {
+        if (!isBuying) {
           shouldShow = false;
         } else if (q) {
           // Only show threads whose listing name contains the query.
@@ -784,8 +831,11 @@
 
     // Add "Buying Listings" option
     const sellSetLower = buildSellSetLower();
-    const buyingCount = getThreadItems().filter((item) => {
-      const l = extractListingName(parseThreadName(item));
+    const buyingCount = getThreadItems().filter(({ row }) => {
+      const domResult = isBuyingThread(row);
+      if (domResult !== null) return domResult;
+      // Fallback: name-based selling-set negation
+      const l = extractListingName(parseThreadName({ row }));
       return !l || !sellSetLower || !sellSetLower.has(l.toLowerCase());
     }).length;
 
