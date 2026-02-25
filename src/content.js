@@ -1,6 +1,8 @@
+import stylesCSS from './styles.css?inline'
+
 (function () {
   "use strict";
-
+  alert("FIREDDD");
   // ── Constants ──────────────────────────────────────────────────────────
 
   const SELECTORS = {
@@ -929,7 +931,19 @@
    * Also immediately marks the session if the script loaded on the selling page
    * (e.g. user opened it in a new tab) — no DOM scrape required for activation.
    */
+  function injectStyles() {
+    if (!document.getElementById('mp-filter-styles')) {
+      const style = document.createElement('style')
+      style.id = 'mp-filter-styles'
+      style.textContent = stylesCSS
+      document.head.appendChild(style)
+    }
+  }
+
   async function init() {
+    // Inject styles
+    injectStyles()
+
     // URL-based detection fires before any async storage reads, so Tab A's
     // storage.onChanged listener receives the flag as early as possible.
     if (isSellingPage()) markSellingPageVisited();

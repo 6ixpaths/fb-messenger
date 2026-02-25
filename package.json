@@ -1,0 +1,16 @@
+{
+  "name": "fb-messenger",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "BROWSER=chrome vite",
+    "dev:firefox": "BROWSER=firefox vite build --watch",
+    "build": "BROWSER=chrome vite build",
+    "build:firefox": "BROWSER=firefox vite build"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.3.0",
+    "vite": "^7.3.1"
+  }
+}
