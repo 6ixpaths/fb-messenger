@@ -5,12 +5,14 @@
   "private": true,
   "scripts": {
     "dev": "BROWSER=chrome vite",
-    "dev:firefox": "BROWSER=firefox vite build --watch",
+    "dev:firefox": "npm run build:firefox && concurrently --kill-others --names vite,web-ext --prefix-colors cyan,yellow \"BROWSER=firefox vite build --watch\" \"web-ext run --source-dir dist-firefox\"",
     "build": "BROWSER=chrome vite build",
     "build:firefox": "BROWSER=firefox vite build"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.3.0",
-    "vite": "^7.3.1"
+    "concurrently": "^9.2.1",
+    "vite": "^7.3.1",
+    "web-ext": "^9.3.0"
   }
 }

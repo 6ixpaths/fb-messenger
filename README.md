@@ -60,15 +60,17 @@ npm install
 ```bash
 npm run dev
 ```
-Then load `dist/` as an unpacked extension in `chrome://extensions/`.
+Then load `dist-chrome/` as an unpacked extension in `chrome://extensions/`.
 
 Changes to `src/content.js` or `src/styles.css` automatically trigger HMR and reload the extension!
 
-**Firefox (with file watching):**
+**Firefox (with auto-reload):**
 ```bash
 npm run dev:firefox
 ```
-This runs Vite in watch mode, rebuilding and writing to `dist/` whenever you make changes. Load `dist/` as a temporary add-on in `about:debugging#/runtime/this-firefox` and reload the extension when you see the build complete message.
+This does an initial build, then runs Vite in watch mode and `web-ext` in parallel. `web-ext` launches Firefox automatically with the extension loaded and **reloads it whenever `dist-firefox/` changes** — no manual steps needed.
+
+> **First time setup:** Check `web-ext-config.mjs` and update the `firefox` path if needed (e.g. if you use Firefox Release instead of Developer Edition).
 
 ### Building for Production
 
@@ -82,7 +84,7 @@ npm run build
 npm run build:firefox
 ```
 
-Output appears in the `dist/` folder.
+Output appears in `dist-chrome/` or `dist-firefox/` depending on the target.
 
 ### Manual Installation (without Vite)
 
@@ -90,13 +92,13 @@ Output appears in the `dist/` folder.
 1. Open `chrome://extensions/`
 2. Enable **Developer mode** (toggle in top-right corner)
 3. Click **Load unpacked**
-4. Select the `dist/` folder (after running `npm run build`)
+4. Select the `dist-chrome/` folder (after running `npm run build`)
 5. Navigate to [Facebook Marketplace Messages](https://www.facebook.com/marketplace/)
 
 **Firefox (Manifest V2):**
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on...**
-3. Select `dist/manifest.json` (after running `npm run build:firefox`)
+3. Select `dist-firefox/manifest.json` (after running `npm run build:firefox`)
 4. Navigate to [Facebook Marketplace Messages](https://www.facebook.com/marketplace/)
 
 ## Project Structure
@@ -109,13 +111,15 @@ fb-messenger/
 ├── manifest.chrome.js     # Chrome MV3 manifest config
 ├── manifest.firefox.js    # Firefox MV2 manifest config
 ├── vite.config.js         # Vite build configuration
+├── web-ext-config.mjs     # Firefox binary path + web-ext defaults
 ├── package.json           # Dependencies & scripts
 ├── test/
 │   └── index.html         # Local test page
-└── dist/                  # Built extension (generated)
+├── dist-chrome/           # Chrome build output (generated, gitignored)
+└── dist-firefox/          # Firefox build output (generated, gitignored)
 ```
 
-The `src/` files are shared between both Chrome and Firefox. Vite conditionally applies the correct manifest and CORS settings based on the `BROWSER` environment variable.
+The `src/` files are shared between both browsers. The `BROWSER` env var controls which manifest and output folder Vite uses.
 
 ## How the extension finds listings
 

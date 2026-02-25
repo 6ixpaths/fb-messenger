@@ -4,13 +4,13 @@ import fs from 'fs'
 import path from 'path'
 
 const browser = process.env.BROWSER || 'chrome'
+const outDir = browser === 'firefox' ? 'dist-firefox' : 'dist-chrome'
 
 // Custom plugin for Firefox MV2
 const firefoxPlugin = {
   name: 'firefox-mv2',
   enforce: 'post',
   writeBundle() {
-    const outDir = 'dist'
     const { default: manifest } = require('./manifest.firefox.js')
 
     // Write manifest.json for Firefox
@@ -37,11 +37,11 @@ export default defineConfig(async () => {
   return {
     plugins,
     build: {
-      outDir: 'dist',
+      outDir,
       rollupOptions: browser === 'firefox' ? {
         input: 'src/content.js',
         output: {
-          dir: 'dist',
+          dir: outDir,
           entryFileNames: 'content.js',
           format: 'iife',
         },
