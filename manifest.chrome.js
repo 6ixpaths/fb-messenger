@@ -5,11 +5,15 @@ export default defineManifest(({ mode }) => ({
   name: mode === 'development' ? 'FB MARKETPLACE DEV' : 'FB Marketplace Chat Filter',
   version: '1.0.0',
   description: 'Filter chats',
-  permissions: ["storage"],
+  permissions: ["storage", "tabs"],
   host_permissions: [
     "https://www.facebook.com/*",
     "https://www.messenger.com/*"
   ],
+  background: {
+    service_worker: 'src/background.js',
+    type: 'module',
+  },
   content_scripts: [
     {
       matches: [

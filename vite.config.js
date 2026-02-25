@@ -30,6 +30,20 @@ export default defineConfig(async () => {
   if (browser === 'chrome') {
     const { default: manifest } = await import('./manifest.chrome.js')
     plugins.push(crx({ manifest }))
+
+    // Dev-only: when content.js or styles.css change, send a custom HMR event
+    // so the background service worker can reload matching tabs.
+    // (CRXJS only restarts the SW — firing `activate` — when background.js itself
+    // changes; content script changes go through a different hot-update path.)
+    plugins.push({
+      name: 'content-script-tab-reloader',
+      apply: 'serve',
+      handleHotUpdate({ file, server }) {
+        if (file.includes('/src/content') || file.includes('/src/styles')) {
+          server.ws.send({ type: 'custom', event: 'reload-tabs', data: {} })
+        }
+      },
+    })
   } else {
     plugins.push(firefoxPlugin)
   }

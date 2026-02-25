@@ -2,7 +2,7 @@ import stylesCSS from './styles.css?inline'
 
 (function () {
   "use strict";
-  alert("FIREDDD");
+
   // ── Constants ──────────────────────────────────────────────────────────
 
   const SELECTORS = {
