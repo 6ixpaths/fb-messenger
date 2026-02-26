@@ -119,15 +119,6 @@ Three paths restore the flag in a chat-page tab:
 If the extension stops working, the most likely cause is Facebook changing one of these
 selectors. Check the browser console for `[MP Filter]` log lines to diagnose.
 
-## Test Page (`test/index.html`)
-
-- Set `data-mp-filter-test="true"` on `<html>` to enable test mode.
-- In test mode, `isSellingPage()` matches `/marketplace/you/selling` paths; all other paths
-  act as messaging pages.
-- `_storage` falls back to a `window.sessionStorage` shim so storage calls work without
-  the extension API.
-- Load by opening the file directly in a browser — no server needed.
-
 ## Development Workflow
 
 ### Chrome (with HMR)
