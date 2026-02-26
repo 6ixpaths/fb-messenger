@@ -40,7 +40,6 @@ import stylesCSS from './styles.css?inline'
   let currentFilter = null;
   let buyingSearchQuery = "";
   let debounceTimer = null;
-  let isLoading = false;
   let isObserving = false;
   let hasScrapedSellingPage = false;
 
@@ -275,6 +274,7 @@ import stylesCSS from './styles.css?inline'
    * Returns 'selling' | 'buying' | null (undetermined / non-marketplace chat).
    */
   function getOpenChatRole() {
+    console.log("Getting roles");
     const panels = document.querySelectorAll('[role="presentation"]');
     for (const panel of panels) {
       const walker = document.createTreeWalker(panel, NodeFilter.SHOW_ELEMENT);
@@ -302,72 +302,6 @@ import stylesCSS from './styles.css?inline'
    * chat-capture acts as a fallback and may add newly-discovered selling
    * listings so the dropdown has something to show.
    */
-  async function captureOpenChatListing() {
-    const role = getOpenChatRole();
-    if (!role) return;
-
-    // Find the listing name from the active (highlighted) thread row
-    const activeLink = document.querySelector(
-      [
-        `${SELECTORS.threadLink}[aria-current="page"]`,
-        `${SELECTORS.threadLink}[aria-selected="true"]`,
-        `${SELECTORS.threadLink}[aria-current="true"]`,
-      ].join(", ")
-    );
-    if (!activeLink) return;
-
-    const row = activeLink.closest('div[role="row"]');
-    if (!row) return;
-
-    const listing = extractListingName(parseThreadName({ row }));
-    if (!listing) return;
-
-    const stored = await readPersistedListings();
-
-    // Build a map from lowercase name → existing entry (preserving listedOn)
-    const sellingMap = new Map(
-      normalizeSelling(stored.selling).map((e) => [e.name.toLowerCase(), e])
-    );
-    const buying = new Set(stored.buying || []);
-
-    // True when the selling-page scraper has already run and is the
-    // authoritative source of selling listings.
-    const hasScraperData = storedSellingListings && storedSellingListings.length > 0;
-
-    if (role === "selling") {
-      if (!hasScraperData) {
-        // Fallback: no scraper data yet — allow chat-capture to populate selling list
-        if (!sellingMap.has(listing.toLowerCase())) {
-          sellingMap.set(listing.toLowerCase(), { name: listing, listedOn: null });
-        }
-      }
-      // Always remove from buying if newly confirmed as a selling thread
-      buying.delete(listing);
-    } else {
-      sellingMap.delete(listing.toLowerCase());
-      buying.add(listing);
-    }
-
-    const newSelling = Array.from(sellingMap.values());
-    const newBuying = Array.from(buying);
-
-    await persistListings({ selling: newSelling, buying: newBuying });
-
-    // Update in-memory state only when scraper hasn't run (fallback path)
-    if (role === "selling" && !hasScraperData) {
-      const alreadyKnown =
-        storedSellingListings !== null &&
-        storedSellingListings.some(
-          (s) => s.name.toLowerCase() === listing.toLowerCase()
-        );
-      if (!alreadyKnown) {
-        storedSellingListings = newSelling;
-        refreshListings();
-      }
-    }
-
-    console.log(`[MP Filter] Open chat: ${role} — "${listing}"`);
-  }
 
   // ── Thread parsing ─────────────────────────────────────────────────────
 
@@ -661,12 +595,11 @@ import stylesCSS from './styles.css?inline'
   // ── UI ─────────────────────────────────────────────────────────────────
 
   function createFilterUI(threadList) {
+    console.log("CREATING UI");
     if (document.getElementById("mp-chat-filter")) return;
 
-    isLoading = true;
     filterContainer = document.createElement("div");
     filterContainer.id = "mp-chat-filter";
-    filterContainer.setAttribute("data-loading", "true");
 
     // ── Info element: shown when no selling data has been loaded yet ──
     const info = document.createElement("span");
@@ -683,50 +616,44 @@ import stylesCSS from './styles.css?inline'
     // ── Dropdown: shown only when selling data is available ──
     const select = document.createElement("select");
     select.id = "mp-chat-filter-select";
-    select.disabled = true;
-    select.style.display = "none"; // hidden until selling data is loaded
     select.addEventListener("change", async (e) => {
+      console.log("CHANGED LISTING");
       const val = e.target.value;
       const isBuying = val === "BUYING_LISTINGS";
-
+      console.log(isBuying);
       // Show / hide the search row
       const sr = document.getElementById("mp-chat-filter-search-row");
       if (sr) sr.style.display = isBuying ? "" : "none";
 
-      // Clear search state when leaving the buying filter
-      if (!isBuying) {
-        buyingSearchQuery = "";
-        const inp = document.getElementById("mp-chat-filter-search");
-        if (inp) inp.value = "";
-        const clr = document.getElementById("mp-chat-filter-search-clear");
-        if (clr) clr.style.display = "none";
-      }
-
-      if (isBuying) {
-        // Scroll to pre-load threads before filtering so the search pool is full
-        await scrollToLoadBuyingThreads();
-        applyFilter("BUYING_LISTINGS");
-      } else {
-        applyFilter(val || null);
-      }
+      // // Clear search state when leaving the buying filter
+      // if (!isBuying) {
+      //   console.log("NOT BUYING LISTING");
+      //   buyingSearchQuery = "";
+      //   const inp = document.getElementById("mp-chat-filter-search");
+      //   if (inp) inp.value = "";
+      //   const clr = document.getElementById("mp-chat-filter-search-clear");
+      //   if (clr) clr.style.display = "none";
+      // }
+      //
+      // if (isBuying) {
+      //   // Scroll to pre-load threads before filtering so the search pool is full
+      //   await scrollToLoadBuyingThreads();
+      //   applyFilter("BUYING_LISTINGS");
+      // } else {
+      //   applyFilter(val || null);
+      // }
       // Method 2: classify the currently open chat when a filter option is picked
-      captureOpenChatListing();
     });
 
     const placeholderOpt = document.createElement("option");
-    placeholderOpt.textContent = "Loading…";
+    placeholderOpt.textContent = "Select a listing...";
     select.appendChild(placeholderOpt);
 
-    const spinner = document.createElement("div");
-    spinner.id = "mp-chat-filter-spinner";
-    spinner.className = "mp-spinner";
-
-    // ── Row 1: dropdown controls (info | select | spinner) ──
+    // ── Row 1: dropdown controls (info | select) ──
     const row1 = document.createElement("div");
     row1.id = "mp-chat-filter-row1";
     row1.appendChild(info);
     row1.appendChild(select);
-    row1.appendChild(spinner);
 
     // ── Search row: visible only when Buying Listings is selected ──
     const searchRow = document.createElement("div");
@@ -779,6 +706,9 @@ import stylesCSS from './styles.css?inline'
     if (header && header.nextSibling) {
       header.parentNode.insertBefore(filterContainer, header.nextSibling);
     } else {
+      console.log("PREPENDING FILTER");
+      console.log(threadList);
+      console.log(filterContainer);
       threadList.prepend(filterContainer);
     }
     // Insert status immediately after the filter bar (not inside it)
@@ -803,10 +733,6 @@ import stylesCSS from './styles.css?inline'
     if (!hasSellData) {
       if (infoEl) infoEl.style.display = "";
       select.style.display = "none";
-      if (isLoading) {
-        isLoading = false;
-        if (filterContainer) filterContainer.removeAttribute("data-loading");
-      }
       applyFilter(null);
       updateStatus("No listings loaded — visit your Marketplace selling page.");
       return;
@@ -822,6 +748,8 @@ import stylesCSS from './styles.css?inline'
     // listings.length === storedSellingListings.length (scraper count)
     allOpt.textContent = `My Listings (${listings.length})`;
     select.appendChild(allOpt);
+
+
 
     for (const listing of listings) {
       // Case-insensitive count: exclude confirmed buying threads (same logic as applyFilter)
@@ -852,12 +780,6 @@ import stylesCSS from './styles.css?inline'
     buyingOpt.value = "BUYING_LISTINGS";
     buyingOpt.textContent = `Buying Listings (${buyingCount})`;
     select.appendChild(buyingOpt);
-
-    if (isLoading) {
-      isLoading = false;
-      select.disabled = false;
-      if (filterContainer) filterContainer.removeAttribute("data-loading");
-    }
 
     // Restore previous selection (case-insensitive match)
     const prevLower = (previousValue || "").toLowerCase();
@@ -893,6 +815,34 @@ import stylesCSS from './styles.css?inline'
     if (status) status.textContent = msg;
   }
 
+  // ── Selling page hydration observer ───────────────────────────────────
+
+  /**
+   * Watches for the selling-page DOM to hydrate (listing cards appear).
+   * Once cards are detected, triggers the scraper once and cleans up.
+   * This replaces the heartbeat's time-based polling on the selling page.
+   */
+  function observeSellingPageHydration() {
+    if (!isSellingPage() || hasScrapedSellingPage) return;
+
+    let hydrationObserver;
+
+    hydrationObserver = new MutationObserver(() => {
+      // Check if listing cards have appeared (DOM hydrated)
+      const buttons = document.querySelectorAll(SELECTORS.sellingPageBtn);
+      if (buttons.length > 0) {
+        // DOM is hydrated — trigger scraper and clean up observer
+        tryScrapeSellingPage().then(() => {
+          if (hydrationObserver) hydrationObserver.disconnect();
+        });
+      }
+    });
+
+    // Watch the whole document for listing cards to appear
+    hydrationObserver.observe(document.body, { childList: true, subtree: true });
+    console.log("[MP Filter] Watching for selling page DOM hydration...");
+  }
+
   // ── Mutation observer (lazy-loaded threads) ───────────────────────────
 
   function observeNewThreads() {
@@ -901,25 +851,54 @@ import stylesCSS from './styles.css?inline'
     isObserving = true;
 
     const observer = new MutationObserver(() => {
-      if (isLoading) return;
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         refreshListings();
         if (currentFilter) applyFilter(currentFilter);
-        // Also run open-chat role capture on each DOM change
-        captureOpenChatListing();
+
       }, 300);
     });
 
     observer.observe(grid, { childList: true, subtree: true });
   }
 
-  // ── Injection ──────────────────────────────────────────────────────────
+  // ── Robust threadList detection and filter injection ──────────────────
 
-  function tryInject() {
-    if (!isMessagingPage()) return;
+  /**
+   * Ensures the filter UI is created when threadList is ready.
+   * Uses a MutationObserver on the header to detect when the skeleton loader is done.
+   * Disconnects the observer after injection (single-shot activation).
+   */
+  function doesThreadListExist() {
+    const body = document.body;
     const threadList = document.querySelector(SELECTORS.threadList);
-    if (!threadList) return;
+
+    // Set up observer to watch for header text changes (skeleton loader completing)
+    const threadListObserver = new MutationObserver(() => {
+      const headerEl = body.querySelector("header");
+      console.log("IN OBSERVER");
+      console.log(headerEl);
+      console.log(headerEl.textContent);
+      //const hasNonVirtualizedChild = threadList => !!threadList.querySelector('[data-virtualized="false"]');
+      if (headerEl && headerEl.textContent.includes("Marketplace")) {
+        console.log("[MP Filter] Header loaded, injecting filter UI...");
+        console.log("INJECTING");
+        const newThreadList = document.querySelector(SELECTORS.threadList);
+        injectFilterUI(newThreadList);
+        threadListObserver.disconnect();
+      }
+    });
+
+    threadListObserver.observe(body, { childList: true, subtree: true, characterData: true });
+    console.log("[MP Filter] Watching header for skeleton loader to complete...");
+  }
+
+  /**
+   * Injects the filter UI into the threadList (called once when DOM is ready).
+   */
+  function injectFilterUI(threadList) {
+    if (document.getElementById("mp-chat-filter")) return;
+
     createFilterUI(threadList);
     observeNewThreads();
   }
@@ -943,10 +922,21 @@ import stylesCSS from './styles.css?inline'
   async function init() {
     // Inject styles
     injectStyles()
+    console.log("WE INITIALIZED 1.0");
+
+    // On messaging pages, ensure filter UI is injected when threadList appears
+    if (isMessagingPage()) {
+      console.log("[MP Filter] Initializing filter injection on messaging page...");
+      doesThreadListExist();
+    }
 
     // URL-based detection fires before any async storage reads, so Tab A's
     // storage.onChanged listener receives the flag as early as possible.
-    if (isSellingPage()) markSellingPageVisited();
+    if (isSellingPage()) {
+      markSellingPageVisited();
+      // Watch for DOM hydration and trigger scraper when ready
+      observeSellingPageHydration();
+    }
 
     const [stored, flagData] = await Promise.all([
       readPersistedListings(),
@@ -964,7 +954,6 @@ import stylesCSS from './styles.css?inline'
         storedSellingListings
       );
     }
-    tryInject();
   }
 
   init();
@@ -1010,32 +999,25 @@ import stylesCSS from './styles.css?inline'
   } catch (_) {}
 
   // ── Heartbeat ──────────────────────────────────────────────────────────
+  // Minimal heartbeat: only polls the session flag for Firefox cross-tab activation.
+  // Selling-page scraping is now event-driven via observeSellingPageHydration().
+  // Filter injection is now event-driven via ensureFilterUIExists() with header observer.
+  // Once the session flag is found, the guard short-circuits and no further reads occur.
 
   setInterval(() => {
-    if (isSellingPage()) {
-      markSellingPageVisited(); // url-based, no DOM needed, idempotent
-      tryScrapeSellingPage();   // dom-based, may retry until hydrated
-    } else if (isMessagingPage()) {
-      tryInject();
-      captureOpenChatListing(); // classify the currently open chat if role is detectable
-
-      // Poll for the session flag on every tick while it hasn't been found yet.
-      // This is the primary cross-tab activation path for Firefox, where
-      // storage.onChanged does not fire in content scripts.
-      // Once the flag is found the guard short-circuits and no further reads occur.
-      if (!sellingPageVisitedThisSession) {
-        Promise.all([
-          _storage.get(SESSION_FLAG_KEY),
-          readPersistedListings(),
-        ]).then(([flagData, stored]) => {
-          const ts = flagData[SESSION_FLAG_KEY];
-          if (ts && (Date.now() - ts) < 8 * 3600 * 1000) {
-            storedSellingListings = normalizeSelling(stored.selling);
-            sellingPageVisitedThisSession = true;
-            refreshListings();
-          }
-        }).catch(() => {});
-      }
+    if (isMessagingPage() && !sellingPageVisitedThisSession) {
+      Promise.all([
+        _storage.get(SESSION_FLAG_KEY),
+        readPersistedListings(),
+      ]).then(([flagData, stored]) => {
+        const ts = flagData[SESSION_FLAG_KEY];
+        if (ts && (Date.now() - ts) < 8 * 3600 * 1000) {
+          storedSellingListings = normalizeSelling(stored.selling);
+          sellingPageVisitedThisSession = true;
+          console.log("[MP Filter] Session flag found via heartbeat polling — activating filter.");
+          refreshListings();
+        }
+      }).catch(() => {});
     }
   }, 1500);
 
@@ -1050,10 +1032,15 @@ import stylesCSS from './styles.css?inline'
       if (!isSellingPage()) hasScrapedSellingPage = false;
       // URL-based activation: fires immediately on SPA navigation to selling page,
       // before the DOM has even hydrated — no scrape required.
-      if (isSellingPage()) markSellingPageVisited();
-      // When navigating back to the messaging page, re-read the session flag
-      // (another tab may have visited the selling page) then refresh the UI.
+      if (isSellingPage()) {
+        markSellingPageVisited();
+        // Watch for DOM hydration and trigger scraper when ready
+        observeSellingPageHydration();
+      }
+      // When navigating back to the messaging page, ensure filter is injected
+      // and re-read the session flag in case another tab visited the selling page
       if (isMessagingPage()) {
+        ensureFilterUIExists();
         _storage.get(SESSION_FLAG_KEY)
           .then((d) => {
             const ts = d[SESSION_FLAG_KEY];
