@@ -681,22 +681,18 @@ import stylesCSS from './styles.css?inline'
       if (sr) sr.style.display = isBuying ? "" : "none";
 
       // Clear search state when leaving the buying filter
-      if (!isBuying) {
+      if (isBuying) {
         console.log("NOT BUYING LISTING");
         buyingSearchQuery = "";
         const inp = document.getElementById("mp-chat-filter-search");
         if (inp) inp.value = "";
         const clr = document.getElementById("mp-chat-filter-search-clear");
         if (clr) clr.style.display = "none";
-      }
-
-      if (isBuying) {
-        // Scroll to pre-load threads before filtering so the search pool is full
+      } else {
         await scrollToLoadBuyingThreads();
         applyFilter("BUYING_LISTINGS");
-      } else {
-        applyFilter(val || null);
       }
+
       //Method 2: classify the currently open chat when a filter option is picked
     });
 
