@@ -494,6 +494,7 @@ import stylesCSS from './styles.css?inline'
   // ── Filtering ──────────────────────────────────────────────────────────
 
   function applyFilter(listing) {
+    console.log("APPLYING FILTER");
     currentFilter = listing;
 
     const sellSetLower = buildSellSetLower();
@@ -769,97 +770,53 @@ import stylesCSS from './styles.css?inline'
   }
 
   function refreshListings() {
+
     console.log("REFRESHING LISTINGS LIKE A MADMAN");
     const select = document.getElementById("mp-chat-filter-select");
     const infoEl = document.getElementById("mp-chat-filter-info");
     if (!select) return;
 
-    const hasSellData =
-      sellingPageVisitedThisSession &&
-      storedSellingListings &&
-      storedSellingListings.length > 0;
-    const previousValue = select.value;
-    const listings = getUniqueListings(); // array of name strings
+    const hasData = sellingPageVisitedThisSession && storedSellingListings?.length > 0;
+    const listings = getUniqueListings();
+    const prevVal = select.value || currentFilter || "";
 
-    // ── Toggle info vs dropdown ──
-    if (!hasSellData) {
-      if (infoEl) infoEl.style.display = "";
-      select.style.display = "none";
+    // 1. Toggle UI Visibility
+    if (infoEl) infoEl.style.display = hasData ? "none" : "";
+    select.style.display = hasData ? "" : "none";
+
+    if (!hasData) {
       applyFilter(null);
-      updateStatus("No listings loaded — visit your Marketplace selling page.");
-      return;
+      return updateStatus("No listings loaded — visit your Marketplace selling page.");
     }
 
-    if (infoEl) infoEl.style.display = "none";
-    select.style.display = "";
+    // 2. Pre-calculate Counts (One pass for performance)
+    const threads = getThreadItems();
+    const sellSet = buildSellSetLower();
 
-    select.innerHTML = "";
-
-    const allOpt = document.createElement("option");
-    allOpt.value = "";
-    // listings.length === storedSellingListings.length (scraper count)
-    allOpt.textContent = `My Listings (${listings.length})`;
-    select.appendChild(allOpt);
-
-
-
-    for (const listing of listings) {
-      // Case-insensitive count: exclude confirmed buying threads (same logic as applyFilter)
-      const count = getThreadItems().filter(({ row }) => {
-        const l = extractListingName(parseThreadName({ row }));
-        if (!l || l.toLowerCase() !== listing.toLowerCase()) return false;
-        const domResult = isBuyingThread(row);
-        return domResult !== null ? !domResult : true;
-      }).length;
-
-      const opt = document.createElement("option");
-      opt.value = listing;
-      opt.textContent = `${listing} (${count})`;
-      select.appendChild(opt);
-    }
-
-    // Add "Buying Listings" option
-    const sellSetLower = buildSellSetLower();
-    const buyingCount = getThreadItems().filter(({ row }) => {
-      const domResult = isBuyingThread(row);
-      if (domResult !== null) return domResult;
-      // Fallback: name-based selling-set negation
-      const l = extractListingName(parseThreadName({ row }));
-      return !l || !sellSetLower || !sellSetLower.has(l.toLowerCase());
+    const getCount = (listing) => threads.filter(({ row }) => {
+      const name = extractListingName(parseThreadName({ row }))?.toLowerCase();
+      const isBuying = isBuyingThread(row) ?? (!name || !sellSet?.has(name));
+      return listing === "BUYING_LISTINGS" ? isBuying : (!isBuying && name === listing.toLowerCase());
     }).length;
 
-    const buyingOpt = document.createElement("option");
-    buyingOpt.value = "BUYING_LISTINGS";
-    buyingOpt.textContent = `Buying Listings (${buyingCount})`;
-    select.appendChild(buyingOpt);
+    // 3. Build Options via Template Strings
+    const listOptions = listings.map(l => `<option value="${l}">${l} (${getCount(l)})</option>`).join('');
 
-    // Restore previous selection (case-insensitive match)
-    const prevLower = (previousValue || "").toLowerCase();
-    const matchPrev = listings.find((l) => l.toLowerCase() === prevLower);
-    const filterLower = (currentFilter || "").toLowerCase();
-    const matchFilter = listings.find((l) => l.toLowerCase() === filterLower);
+    select.innerHTML = `
+      <option value="">My Listings (${listings.length})</option>
+      ${listOptions}
+      <option value="BUYING_LISTINGS">Buying Listings (${getCount("BUYING_LISTINGS")})</option>
+    `;
 
-    if (previousValue === "BUYING_LISTINGS") {
-      select.value = "BUYING_LISTINGS";
-      const sr = document.getElementById("mp-chat-filter-search-row");
-      if (sr) sr.style.display = "";
-      applyFilter("BUYING_LISTINGS");
-    } else if (matchPrev) {
-      select.value = matchPrev;
-      applyFilter(matchPrev);
-    } else if (matchFilter) {
-      select.value = matchFilter;
-      applyFilter(matchFilter);
-    } else {
-      select.value = "";
-      applyFilter(null);
-    }
+    // 4. Restore State & Apply Filter
+    const match = listings.find(l => l.toLowerCase() === prevVal.toLowerCase()) ||
+                  (["BUYING_LISTINGS", ""].includes(prevVal) ? prevVal : "");
 
-    const totalThreads = getThreadItems().length;
-    const storedInfo = ` · ${storedSellingListings.length} listed`;
-    updateStatus(
-      `${totalThreads} thread(s), ${listings.length} listing(s)${storedInfo}`
-    );
+    select.value = match;
+    document.getElementById("mp-chat-filter-search-row").style.display = match === "BUYING_LISTINGS" ? "" : "none";
+    applyFilter(match || null);
+  
+    updateStatus(`${threads.length} thread(s), ${listings.length} listing(s) · ${storedSellingListings.length} listed`);
   }
 
   function updateStatus(msg) {
