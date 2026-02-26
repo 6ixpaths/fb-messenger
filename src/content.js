@@ -473,40 +473,21 @@ import stylesCSS from './styles.css?inline'
    */
   async function scrollToLoadBuyingThreads() {
     const grid = document.querySelector(SELECTORS.chatGrid);
-    if (!grid) return;
-
-    // Walk up the DOM to find the first ancestor that is actually scrollable.
-    function findScrollEl(el) {
-      let e = el.parentElement;
-      while (e && e !== document.documentElement) {
-        const ov = window.getComputedStyle(e).overflowY;
-        if ((ov === "auto" || ov === "scroll") && e.scrollHeight > e.clientHeight) {
-          return e;
-        }
-        e = e.parentElement;
-      }
-      return null;
-    }
-
-    const scrollEl = findScrollEl(grid);
-    if (!scrollEl) return;
-
-    const MAX_ATTEMPTS = 30;
+    const scrollEl = grid.parentElement.closest(':not(html, body)');
+    const MAX_ATTEMPTS = 10;
+    const getThreadCount = () =>
+    new Set([...grid.querySelectorAll(SELECTORS.threadLink)].map(l => l.closest('[role="row"]'))).size;
 
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      // Count all thread rows currently in the DOM (visible or not).
-      const links = grid.querySelectorAll(SELECTORS.threadLink);
-      const seen = new Set();
-      for (const link of links) {
-        const row = link.closest('div[role="row"]');
-        if (row) seen.add(row);
-      }
-      if (seen.size >= BUYING_SCROLL_TARGET) break;
+      if (getThreadCount() >= BUYING_SCROLL_TARGET) break;
 
-      const before = scrollEl.scrollTop;
+      const lastTop = scrollEl.scrollTop;
       scrollEl.scrollTop += 600;
-      await sleep(350);
-      if (scrollEl.scrollTop <= before) break; // reached bottom or unmovable
+
+      await new Promise(r => setTimeout(r, 350));
+
+      // If we didn't actually move (hit the bottom)
+      if (scrollEl.scrollTop === lastTop) break;
     }
   }
 
