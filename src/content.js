@@ -594,6 +594,80 @@ import stylesCSS from './styles.css?inline'
 
   // ── UI ─────────────────────────────────────────────────────────────────
 
+
+  function createFilterUIV2(threadList) {
+    if (document.getElementById("mp-chat-filter")) return;
+
+    const container = document.createElement("div");
+    container.id = "mp-chat-filter";
+
+    // Use innerHTML for the bulk of the structure
+    container.innerHTML = `
+        <div id="mp-chat-filter-row1">
+            <span id="mp-chat-filter-info">
+                Filters inactive — <a id="mp-chat-filter-info-link" href="https://www.facebook.com/marketplace/you/selling?state=LIVE&status%5B0%5D=IN_STOCK" target="_blank" rel="noopener noreferrer">Open your selling page</a> to load listings.
+            </span>
+            <select id="mp-chat-filter-select">
+                <option>Select a listing...</option>
+            </select>
+        </div>
+        <div id="mp-chat-filter-search-row" style="display: none;">
+            <div id="mp-chat-filter-search-wrap">
+                <input id="mp-chat-filter-search" type="text" placeholder="Search buying chats…" autocomplete="off" spellcheck="false">
+                <button id="mp-chat-filter-search-clear" type="button" aria-label="Clear search" style="display: none;">&times;</button>
+            </div>
+        </div>
+        <p id="mp-chat-filter-status"></p>
+    `;
+
+    // Placement logic
+    const header = threadList.querySelector("header");
+    header?.nextSibling ? header.parentNode.insertBefore(container, header.nextSibling) : threadList.prepend(container);
+
+    // Event Delegation / Scoped Selectors
+    const select = container.querySelector("#mp-chat-filter-select");
+    const searchInp = container.querySelector("#mp-chat-filter-search");
+    const clearBtn = container.querySelector("#mp-chat-filter-search-clear");
+    const searchRow = container.querySelector("#mp-chat-filter-search-row");
+
+    select.onchange = async (e) => {
+        const val = e.target.value;
+        const isBuying = val === "BUYING_LISTINGS";
+        searchRow.style.display = e.target.value === "BUYING_LISTINGS" ? "" : "none";
+        if (!isBuying) {
+          console.log("NOT BUYING LISTING");
+          buyingSearchQuery = "";
+          const inp = document.getElementById("mp-chat-filter-search");
+          if (inp) inp.value = "";
+          const clr = document.getElementById("mp-chat-filter-search-clear");
+          if (clr) clr.style.display = "none";
+        }
+
+        if (isBuying) {
+          // Scroll to pre-load threads before filtering so the search pool is full
+          await scrollToLoadBuyingThreads();
+          applyFilter("BUYING_LISTINGS");
+        } else {
+          applyFilter(val || null);
+        }
+    };
+
+    searchInp.oninput = () => {
+        buyingSearchQuery = searchInp.value;
+        clearBtn.style.display = buyingSearchQuery ? "" : "none";
+        applyFilter("BUYING_LISTINGS");
+    };
+
+    clearBtn.onclick = () => {
+        searchInp.value = buyingSearchQuery = "";
+        clearBtn.style.display = "none";
+        searchInp.focus();
+        applyFilter("BUYING_LISTINGS");
+    };
+
+    refreshListings();
+  }
+
   function createFilterUI(threadList) {
     console.log("CREATING UI");
     if (document.getElementById("mp-chat-filter")) return;
@@ -625,24 +699,24 @@ import stylesCSS from './styles.css?inline'
       const sr = document.getElementById("mp-chat-filter-search-row");
       if (sr) sr.style.display = isBuying ? "" : "none";
 
-      // // Clear search state when leaving the buying filter
-      // if (!isBuying) {
-      //   console.log("NOT BUYING LISTING");
-      //   buyingSearchQuery = "";
-      //   const inp = document.getElementById("mp-chat-filter-search");
-      //   if (inp) inp.value = "";
-      //   const clr = document.getElementById("mp-chat-filter-search-clear");
-      //   if (clr) clr.style.display = "none";
-      // }
-      //
-      // if (isBuying) {
-      //   // Scroll to pre-load threads before filtering so the search pool is full
-      //   await scrollToLoadBuyingThreads();
-      //   applyFilter("BUYING_LISTINGS");
-      // } else {
-      //   applyFilter(val || null);
-      // }
-      // Method 2: classify the currently open chat when a filter option is picked
+      // Clear search state when leaving the buying filter
+      if (!isBuying) {
+        console.log("NOT BUYING LISTING");
+        buyingSearchQuery = "";
+        const inp = document.getElementById("mp-chat-filter-search");
+        if (inp) inp.value = "";
+        const clr = document.getElementById("mp-chat-filter-search-clear");
+        if (clr) clr.style.display = "none";
+      }
+
+      if (isBuying) {
+        // Scroll to pre-load threads before filtering so the search pool is full
+        await scrollToLoadBuyingThreads();
+        applyFilter("BUYING_LISTINGS");
+      } else {
+        applyFilter(val || null);
+      }
+      //Method 2: classify the currently open chat when a filter option is picked
     });
 
     const placeholderOpt = document.createElement("option");
@@ -718,6 +792,7 @@ import stylesCSS from './styles.css?inline'
   }
 
   function refreshListings() {
+    console.log("REFRESHING LISTINGS LIKE A MADMAN");
     const select = document.getElementById("mp-chat-filter-select");
     const infoEl = document.getElementById("mp-chat-filter-info");
     if (!select) return;
@@ -853,6 +928,7 @@ import stylesCSS from './styles.css?inline'
     const observer = new MutationObserver(() => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        console.log("OBSERVING NEW THREADS");
         refreshListings();
         if (currentFilter) applyFilter(currentFilter);
 
@@ -876,15 +952,14 @@ import stylesCSS from './styles.css?inline'
     // Set up observer to watch for header text changes (skeleton loader completing)
     const threadListObserver = new MutationObserver(() => {
       const headerEl = body.querySelector("header");
-      console.log("IN OBSERVER");
-      console.log(headerEl);
-      console.log(headerEl.textContent);
+      console.log("IN THREAD OBSERVER");
+
       //const hasNonVirtualizedChild = threadList => !!threadList.querySelector('[data-virtualized="false"]');
       if (headerEl && headerEl.textContent.includes("Marketplace")) {
         console.log("[MP Filter] Header loaded, injecting filter UI...");
-        console.log("INJECTING");
         const newThreadList = document.querySelector(SELECTORS.threadList);
-        injectFilterUI(newThreadList);
+        createFilterUIV2(newThreadList);
+        observeNewThreads();
         threadListObserver.disconnect();
       }
     });
