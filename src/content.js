@@ -275,36 +275,6 @@ import stylesCSS from './styles.css?inline'
    *
    * Returns 'selling' | 'buying' | null (undetermined / non-marketplace chat).
    */
-  function getOpenChatRole() {
-    console.log("Getting roles");
-    const panels = document.querySelectorAll('[role="presentation"]');
-    for (const panel of panels) {
-      const walker = document.createTreeWalker(panel, NodeFilter.SHOW_ELEMENT);
-      let node;
-      while ((node = walker.nextNode())) {
-        if (node.children.length > 0) continue; // leaf text nodes only
-        const text = node.textContent.trim();
-        if (text === "View buyer profile") return "selling";
-        if (text === "View seller profile") return "buying";
-      }
-    }
-    return null;
-  }
-
-  /**
-   * When a chat is open, call this to capture its role (selling/buying) and
-   * update the buying list in storage.
-   *
-   * When scraper data already exists (storedSellingListings.length > 0) the
-   * selling list is left untouched — the scraper is the authoritative source
-   * and chat-capture must not accumulate historical selling listings on top
-   * of it (which would eventually inflate the dropdown with old/sold items).
-   *
-   * When no scraper data exists (user has not visited the selling page yet),
-   * chat-capture acts as a fallback and may add newly-discovered selling
-   * listings so the dropdown has something to show.
-   */
-
   // ── Thread parsing ─────────────────────────────────────────────────────
 
   /**
@@ -548,7 +518,7 @@ import stylesCSS from './styles.css?inline'
   // ── UI ─────────────────────────────────────────────────────────────────
 
 
-  function createFilterUIV2(threadList) {
+  function createFilterUI(threadList) {
     if (document.getElementById("mp-chat-filter")) return;
 
     const container = document.createElement("div");
@@ -617,125 +587,6 @@ import stylesCSS from './styles.css?inline'
         searchInp.focus();
         filterListing("BUYING_LISTINGS");
     };
-
-    refreshListings();
-  }
-
-  function createFilterUI(threadList) {
-    console.log("CREATING UI");
-    if (document.getElementById("mp-chat-filter")) return;
-
-    filterContainer = document.createElement("div");
-    filterContainer.id = "mp-chat-filter";
-
-    // ── Info element: shown when no selling data has been loaded yet ──
-    const info = document.createElement("span");
-    info.id = "mp-chat-filter-info";
-    const infoLink = document.createElement("a");
-    infoLink.id = "mp-chat-filter-info-link";
-    infoLink.href =
-      "https://www.facebook.com/marketplace/you/selling?state=LIVE&status%5B0%5D=IN_STOCK";
-    infoLink.target = "_blank";
-    infoLink.rel = "noopener noreferrer";
-    infoLink.textContent = "Open your selling page";
-    info.append("Filters inactive — ", infoLink, " to load listings.");
-
-    // ── Dropdown: shown only when selling data is available ──
-    const select = document.createElement("select");
-    select.id = "mp-chat-filter-select";
-    select.addEventListener("change", async (e) => {
-      console.log("CHANGED LISTING");
-      const val = e.target.value;
-      const isBuying = val === "BUYING_LISTINGS";
-      console.log(isBuying);
-      // Show / hide the search row
-      const sr = document.getElementById("mp-chat-filter-search-row");
-      if (sr) sr.style.display = isBuying ? "" : "none";
-
-      // Clear search state when leaving the buying filter
-      if (isBuying) {
-        console.log("NOT BUYING LISTING");
-        buyingSearchQuery = "";
-        const inp = document.getElementById("mp-chat-filter-search");
-        if (inp) inp.value = "";
-        const clr = document.getElementById("mp-chat-filter-search-clear");
-        if (clr) clr.style.display = "none";
-      } else {
-        await scrollToLoadBuyingThreads();
-        filterListing("BUYING_LISTINGS");
-      }
-
-      //Method 2: classify the currently open chat when a filter option is picked
-    });
-
-    const placeholderOpt = document.createElement("option");
-    placeholderOpt.textContent = "Select a listing...";
-    select.appendChild(placeholderOpt);
-
-    // ── Row 1: dropdown controls (info | select) ──
-    const row1 = document.createElement("div");
-    row1.id = "mp-chat-filter-row1";
-    row1.appendChild(info);
-    row1.appendChild(select);
-
-    // ── Search row: visible only when Buying Listings is selected ──
-    const searchRow = document.createElement("div");
-    searchRow.id = "mp-chat-filter-search-row";
-    searchRow.style.display = "none";
-
-    const searchWrap = document.createElement("div");
-    searchWrap.id = "mp-chat-filter-search-wrap";
-
-    const searchInput = document.createElement("input");
-    searchInput.id = "mp-chat-filter-search";
-    searchInput.type = "text";
-    searchInput.placeholder = "Search buying chats\u2026";
-    searchInput.autocomplete = "off";
-    searchInput.spellcheck = false;
-
-    const clearBtn = document.createElement("button");
-    clearBtn.id = "mp-chat-filter-search-clear";
-    clearBtn.type = "button";
-    clearBtn.textContent = "\u00d7"; // ×
-    clearBtn.setAttribute("aria-label", "Clear search");
-    clearBtn.style.display = "none";
-
-    searchInput.addEventListener("input", () => {
-      buyingSearchQuery = searchInput.value;
-      clearBtn.style.display = buyingSearchQuery ? "" : "none";
-      filterListing("BUYING_LISTINGS");
-    });
-
-    clearBtn.addEventListener("click", () => {
-      searchInput.value = "";
-      buyingSearchQuery = "";
-      clearBtn.style.display = "none";
-      searchInput.focus();
-      filterListing("BUYING_LISTINGS");
-    });
-
-    searchWrap.appendChild(searchInput);
-    searchWrap.appendChild(clearBtn);
-    searchRow.appendChild(searchWrap);
-
-    filterContainer.appendChild(row1);
-    filterContainer.appendChild(searchRow);
-
-    // ── Status: block element inserted directly BELOW the filter bar ──
-    const status = document.createElement("p");
-    status.id = "mp-chat-filter-status";
-
-    const header = threadList.querySelector("header");
-    if (header && header.nextSibling) {
-      header.parentNode.insertBefore(filterContainer, header.nextSibling);
-    } else {
-      console.log("PREPENDING FILTER");
-      console.log(threadList);
-      console.log(filterContainer);
-      threadList.prepend(filterContainer);
-    }
-    // Insert status immediately after the filter bar (not inside it)
-    filterContainer.insertAdjacentElement("afterend", status);
 
     refreshListings();
   }
@@ -863,7 +714,7 @@ import stylesCSS from './styles.css?inline'
       if (headerEl && headerEl.textContent.includes("Marketplace")) {
         console.log("[MP Filter] Header loaded, injecting filter UI...");
         const newThreadList = document.querySelector(SELECTORS.threadList);
-        createFilterUIV2(newThreadList);
+        createFilterUI(newThreadList);
         observeNewThreads();
         threadListObserver.disconnect();
       }
