@@ -34,10 +34,10 @@ import stylesCSS from './styles.css?inline'
   // (which is not reliably accessible from content scripts).
   const SESSION_FLAG_KEY = "mp_filter_session_v1";
 
-  // ── State ──────────────────────────────────────────────────────────────
 
+  // ── State ──────────────────────────────────────────────────────────────
   let filterContainer = null;
-  let currentFilter = null;
+  let currentListing = null;
   let buyingSearchQuery = "";
   let debounceTimer = null;
   let isObserving = false;
@@ -53,6 +53,7 @@ import stylesCSS from './styles.css?inline'
   // []    = loaded, nothing stored
   // [...]  = loaded, selling listings available as { name, listedOn } objects
   let storedSellingListings = null;
+  let sellingListingsLowerCase = null;  // Cached Set of lowercased listing names for fast lookups
 
   // ── Cross-browser storage ──────────────────────────────────────────────
 
@@ -225,6 +226,7 @@ import stylesCSS from './styles.css?inline'
       listedOn,
     }));
     storedSellingListings = selling;
+    sellingListingsLowerCase = getSellingListingsLowercase();
 
     // Merge buying listings we may have captured via open-chat detection
     const existing = await readPersistedListings();
@@ -372,9 +374,9 @@ import stylesCSS from './styles.css?inline'
 
   /**
    * Builds a Set of lowercased selling listing names for case-insensitive
-   * comparison.  Returns null when no selling data is available.
+   * comparison. Returns null when no selling data is available.
    */
-  function buildSellSetLower() {
+  function getSellingListingsLowercase() {
     if (!sellingPageVisitedThisSession) return null;
     if (!storedSellingListings || storedSellingListings.length === 0) return null;
     return new Set(storedSellingListings.map((l) => l.name.toLowerCase()));
@@ -400,7 +402,7 @@ import stylesCSS from './styles.css?inline'
    * Captured for future "Buying" features.  Uses case-insensitive comparison.
    */
   function getBuyingListingsFromThreads() {
-    const sellSetLower = buildSellSetLower();
+    const sellSetLower = sellingListingsLowerCase;
     if (!sellSetLower) return [];
     const grid = document.querySelector(SELECTORS.chatGrid);
     if (!grid) return [];
@@ -493,84 +495,53 @@ import stylesCSS from './styles.css?inline'
 
   // ── Filtering ──────────────────────────────────────────────────────────
 
-  function applyFilter(listing) {
-    console.log("APPLYING FILTER");
-    currentFilter = listing;
-
-    const sellSetLower = buildSellSetLower();
-
+  function filterListing(listing) {
+    console.log("FILTERING LISTING");
+    console.log(listing);
+    currentListing = listing;
     const grid = document.querySelector(SELECTORS.chatGrid);
+
     if (!grid) return;
 
-    const links = grid.querySelectorAll(SELECTORS.threadLink);
-    const seen = new Set();
+    const rows = [...new Set([...grid.querySelectorAll(SELECTORS.threadLink)].map(l => l.closest('div[role="row"]')))];
     let visibleCount = 0;
 
-    for (const link of links) {
-      const row = link.closest('div[role="row"]');
-      if (!row || seen.has(row)) continue;
-      seen.add(row);
+    rows.forEach(row => {
+      if (!row) return;
 
-      const rowListing = extractListingName(parseThreadName({ row }));
-      let shouldShow;
+      const rowName = extractListingName(parseThreadName({ row }))?.toLowerCase();
+      const isBuyingDom = isBuyingThread(row);
+      const query = buyingSearchQuery.trim().toLowerCase();
+
+      let shouldShow = true;
 
       if (listing === "BUYING_LISTINGS") {
-        // Buying Listings filter: threads classified as buying by DOM structure,
-        // with selling-set negation as a last-resort fallback.
-        // Optionally narrowed by the search query (case-insensitive substring).
-        const domResult = isBuyingThread(row);
-        const isBuying =
-          domResult !== null
-            ? domResult
-            : !rowListing || !sellSetLower || !sellSetLower.has(rowListing.toLowerCase());
-        const q = buyingSearchQuery.trim().toLowerCase();
-        if (!isBuying) {
-          shouldShow = false;
-        } else if (q) {
-          // Only show threads whose listing name contains the query.
-          // Threads with no listing name are hidden when a query is active.
-          shouldShow = !!(rowListing && rowListing.toLowerCase().includes(q));
-        } else {
-          shouldShow = true;
-        }
+        const isBuying = isBuyingDom ?? (!rowName || !sellingListingsLowerCase?.has(rowName));
+        shouldShow = isBuying && (!query || !!rowName?.includes(query));
       } else if (listing) {
-        // Specific listing selected: name must match AND thread must not be
-        // a buying conversation (DOM-classified buying threads are excluded;
-        // inconclusive threads are kept — they matched the selling listing name).
-        const domResultSell = isBuyingThread(row);
-        const isNotBuying = domResultSell !== null ? !domResultSell : true;
-        shouldShow =
-          !!rowListing &&
-          rowListing.toLowerCase() === listing.toLowerCase() &&
-          isNotBuying;
-      } else if (sellSetLower) {
-        // "All Listings" with stored data: show only selling threads
-        shouldShow =
-          !!(rowListing && sellSetLower.has(rowListing.toLowerCase()));
-      } else {
-        // No stored data: show everything (DOM boundary handled in getThreadItems)
-        shouldShow = true;
+        const isNotBuying = isBuyingDom === null || !isBuyingDom;
+        shouldShow = isNotBuying && rowName === listing.toLowerCase();
+      } else if (sellingListingsLowerCase) {
+        shouldShow = !!rowName && sellingListingsLowerCase.has(rowName);
       }
 
       row.style.display = shouldShow ? "" : "none";
       if (shouldShow) visibleCount++;
-    }
+    });
 
+    updateFilterStatus(listing, visibleCount);
+  }
+
+
+  // Helper to keep the main function clean
+  function updateFilterStatus(listing, count) {
+    const q = buyingSearchQuery.trim();
     if (listing === "BUYING_LISTINGS") {
-      const q = buyingSearchQuery.trim();
-      updateStatus(
-        q
-          ? `Showing ${visibleCount} result(s) for "${q}"`
-          : `Showing ${visibleCount} buying chat(s)`
-      );
+      updateStatus(q ? `Showing ${count} result(s) for "${q}"` : `Showing ${count} buying chat(s)`);
     } else if (listing) {
-      updateStatus(`Showing ${visibleCount} chat(s) for "${listing}"`);
+      updateStatus(`Showing ${count} chat(s) for "${listing}"`);
     } else {
-      updateStatus(
-        sellSetLower
-          ? `Showing ${visibleCount} selling chat(s)`
-          : `Showing all ${visibleCount} chat(s)`
-      );
+      updateStatus(sellingListingsLowerCase ? `Showing ${count} selling chat(s)` : `Showing all ${count} chat(s)`);
     }
   }
 
@@ -628,23 +599,23 @@ import stylesCSS from './styles.css?inline'
         if (isBuying) {
           // Scroll to pre-load threads before filtering so the search pool is full
           await scrollToLoadBuyingThreads();
-          applyFilter("BUYING_LISTINGS");
+          filterListing("BUYING_LISTINGS");
         } else {
-          applyFilter(val || null);
+          filterListing(val || null);
         }
     };
 
     searchInp.oninput = () => {
         buyingSearchQuery = searchInp.value;
         clearBtn.style.display = buyingSearchQuery ? "" : "none";
-        applyFilter("BUYING_LISTINGS");
+        filterListing("BUYING_LISTINGS");
     };
 
     clearBtn.onclick = () => {
         searchInp.value = buyingSearchQuery = "";
         clearBtn.style.display = "none";
         searchInp.focus();
-        applyFilter("BUYING_LISTINGS");
+        filterListing("BUYING_LISTINGS");
     };
 
     refreshListings();
@@ -691,7 +662,7 @@ import stylesCSS from './styles.css?inline'
         if (clr) clr.style.display = "none";
       } else {
         await scrollToLoadBuyingThreads();
-        applyFilter("BUYING_LISTINGS");
+        filterListing("BUYING_LISTINGS");
       }
 
       //Method 2: classify the currently open chat when a filter option is picked
@@ -732,7 +703,7 @@ import stylesCSS from './styles.css?inline'
     searchInput.addEventListener("input", () => {
       buyingSearchQuery = searchInput.value;
       clearBtn.style.display = buyingSearchQuery ? "" : "none";
-      applyFilter("BUYING_LISTINGS");
+      filterListing("BUYING_LISTINGS");
     });
 
     clearBtn.addEventListener("click", () => {
@@ -740,7 +711,7 @@ import stylesCSS from './styles.css?inline'
       buyingSearchQuery = "";
       clearBtn.style.display = "none";
       searchInput.focus();
-      applyFilter("BUYING_LISTINGS");
+      filterListing("BUYING_LISTINGS");
     });
 
     searchWrap.appendChild(searchInput);
@@ -778,20 +749,20 @@ import stylesCSS from './styles.css?inline'
 
     const hasData = sellingPageVisitedThisSession && storedSellingListings?.length > 0;
     const listings = getUniqueListings();
-    const prevVal = select.value || currentFilter || "";
+    const prevVal = select.value || currentListing || "";
 
     // 1. Toggle UI Visibility
     if (infoEl) infoEl.style.display = hasData ? "none" : "";
     select.style.display = hasData ? "" : "none";
 
     if (!hasData) {
-      applyFilter(null);
+      filterListing(null);
       return updateStatus("No listings loaded — visit your Marketplace selling page.");
     }
 
     // 2. Pre-calculate Counts (One pass for performance)
     const threads = getThreadItems();
-    const sellSet = buildSellSetLower();
+    const sellSet = sellingListingsLowerCase;
 
     const getCount = (listing) => threads.filter(({ row }) => {
       const name = extractListingName(parseThreadName({ row }))?.toLowerCase();
@@ -814,7 +785,7 @@ import stylesCSS from './styles.css?inline'
 
     select.value = match;
     document.getElementById("mp-chat-filter-search-row").style.display = match === "BUYING_LISTINGS" ? "" : "none";
-    applyFilter(match || null);
+    filterListing(match || null);
   
     updateStatus(`${threads.length} thread(s), ${listings.length} listing(s) · ${storedSellingListings.length} listed`);
   }
@@ -864,7 +835,7 @@ import stylesCSS from './styles.css?inline'
       debounceTimer = setTimeout(() => {
         console.log("OBSERVING NEW THREADS");
         refreshListings();
-        if (currentFilter) applyFilter(currentFilter);
+        if (currentListing) filterListing(currentListing);
 
       }, 300);
     });
@@ -951,11 +922,13 @@ import stylesCSS from './styles.css?inline'
       _storage.get(SESSION_FLAG_KEY).catch(() => ({})),
     ]);
     storedSellingListings = normalizeSelling(stored.selling);
+    console.log(storedSellingListings);
     const flagTs = flagData[SESSION_FLAG_KEY];
     if (flagTs && (Date.now() - flagTs) < 8 * 3600 * 1000) {
       sellingPageVisitedThisSession = true;
       console.log("[MP Filter] Session flag restored — selling page visited this session.");
     }
+    sellingListingsLowerCase = getSellingListingsLowercase();
     if (storedSellingListings.length > 0) {
       console.log(
         `[MP Filter] Loaded ${storedSellingListings.length} stored selling listing(s):`,
@@ -989,6 +962,7 @@ import stylesCSS from './styles.css?inline'
       // Listing data updated by the scraper in another tab
       if (changes[STORAGE_KEY]?.newValue && sellingPageVisitedThisSession) {
         storedSellingListings = normalizeSelling(changes[STORAGE_KEY].newValue.selling);
+        sellingListingsLowerCase = getSellingListingsLowercase()
         needsRefresh = true;
       }
 
@@ -997,9 +971,11 @@ import stylesCSS from './styles.css?inline'
         if (!changes[STORAGE_KEY]) {
           readPersistedListings().then((s) => {
             storedSellingListings = normalizeSelling(s.selling);
+            sellingListingsLowerCase = getSellingListingsLowercase();
             refreshListings();
           }).catch(() => {});
         } else {
+          sellingListingsLowerCase = getSellingListingsLowercase();
           refreshListings();
         }
       }
@@ -1022,6 +998,7 @@ import stylesCSS from './styles.css?inline'
         if (ts && (Date.now() - ts) < 8 * 3600 * 1000) {
           storedSellingListings = normalizeSelling(stored.selling);
           sellingPageVisitedThisSession = true;
+          sellingListingsLowerCase = getSellingListingsLowercase();
           console.log("[MP Filter] Session flag found via heartbeat polling — activating filter.");
           refreshListings();
         }
@@ -1072,7 +1049,7 @@ import stylesCSS from './styles.css?inline'
         .finally(() => {
           setTimeout(() => {
             refreshListings();
-            applyFilter(currentFilter);
+            filterListing(currentListing);
           }, 300);
         });
     }
