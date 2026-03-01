@@ -931,7 +931,6 @@ import stylesCSS from './styles.css?inline'
   async function init() {
     // Inject styles
     injectStyles()
-    console.log("WE INITIALIZED 1.0");
 
     // On messaging pages, ensure filter UI is injected when threadList appears
     if (isMessagingPage()) {
@@ -1030,42 +1029,69 @@ import stylesCSS from './styles.css?inline'
     }
   }, 1500);
 
-  // ── SPA navigation ─────────────────────────────────────────────────────
+  // ── SPA navigation via pushState interception ──────────────────────────
+  // Instead of watching DOM mutations to detect URL changes (expensive),
+  // intercept history.pushState() calls directly (efficient + explicit).
+  // This catches all Facebook SPA navigations without polling overhead.
 
-  let lastUrl = location.href;
-  const urlObserver = new MutationObserver(() => {
-    if (location.href !== lastUrl) {
-      lastUrl = location.href;
-      isObserving = false;
-      // Allow re-scrape if user navigates away from the selling page
-      if (!isSellingPage()) hasScrapedSellingPage = false;
-      // URL-based activation: fires immediately on SPA navigation to selling page,
-      // before the DOM has even hydrated — no scrape required.
-      if (isSellingPage()) {
-        markSellingPageVisited();
-        // Watch for DOM hydration and trigger scraper when ready
-        observeSellingPageHydration();
-      }
-      // When navigating back to the messaging page, ensure filter is injected
-      // and re-read the session flag in case another tab visited the selling page
-      if (isMessagingPage()) {
-        ensureFilterUIExists();
-        _storage.get(SESSION_FLAG_KEY)
-          .then((d) => {
-            const ts = d[SESSION_FLAG_KEY];
-            if (ts && (Date.now() - ts) < 8 * 3600 * 1000 && !sellingPageVisitedThisSession) {
-              sellingPageVisitedThisSession = true;
-            }
-          })
-          .catch(() => {})
-          .finally(() => {
-            setTimeout(() => {
-              refreshListings();
-              applyFilter(currentFilter);
-            }, 300);
-          });
-      }
+  const originalPushState = history.pushState;
+  let lastPath = location.pathname;
+
+  /**
+   * Handles SPA navigation events (called when pathname changes).
+   * Manages selling-page scraping, filter UI injection, and session flag updates.
+   */
+  function handleNavigation() {
+    console.log("[MP Filter] Navigation detected:", location.pathname);
+
+    // Allow re-scrape if user navigates away from the selling page
+    if (!isSellingPage()) {
+      hasScrapedSellingPage = false;
+    }
+
+    // On selling page: mark session and watch for DOM hydration
+    if (isSellingPage()) {
+      console.log("IN NAVIGATION FUNC SETTING OBSERVERS")
+      markSellingPageVisited();
+      observeSellingPageHydration();
+    }
+
+    // On messaging page: ensure filter UI and re-check session flag
+    // (in case another tab visited the selling page after this tab opened)
+    if (isMessagingPage()) {
+      doesThreadListExist();
+      _storage.get(SESSION_FLAG_KEY)
+        .then((d) => {
+          const ts = d[SESSION_FLAG_KEY];
+          if (ts && (Date.now() - ts) < 8 * 3600 * 1000 && !sellingPageVisitedThisSession) {
+            sellingPageVisitedThisSession = true;
+            console.log("[MP Filter] Session flag detected via navigation — activating filter.");
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setTimeout(() => {
+            refreshListings();
+            applyFilter(currentFilter);
+          }, 300);
+        });
+    }
+  }
+
+  // Intercept pushState to detect SPA navigation
+  history.pushState = function(...args) {
+    originalPushState.apply(this, args);
+    if (location.pathname !== lastPath) {
+      lastPath = location.pathname;
+      handleNavigation();
+    }
+  };
+
+  // Also handle back/forward button navigation
+  window.addEventListener('popstate', () => {
+    if (location.pathname !== lastPath) {
+      lastPath = location.pathname;
+      handleNavigation();
     }
   });
-  urlObserver.observe(document.body, { childList: true, subtree: true });
 })();
