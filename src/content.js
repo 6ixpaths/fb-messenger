@@ -839,23 +839,25 @@ import stylesCSS from './styles.css?inline'
   // Filter injection is now event-driven via ensureFilterUIExists() with header observer.
   // Once the session flag is found, the guard short-circuits and no further reads occur.
 
-  setInterval(() => {
-    if (isMessagingPage() && !sellingPageVisitedThisSession) {
-      Promise.all([
-        _storage.get(SESSION_FLAG_KEY),
-        readPersistedListings(),
-      ]).then(([flagData, stored]) => {
-        const ts = flagData[SESSION_FLAG_KEY];
-        if (ts && (Date.now() - ts) < 8 * 3600 * 1000) {
-          storedSellingListings = normalizeSelling(stored.selling);
-          sellingPageVisitedThisSession = true;
-          sellingListingsLowerCase = getSellingListingsLowercase();
-          console.log("[MP Filter] Session flag found via heartbeat polling — activating filter.");
-          refreshListings();
-        }
-      }).catch(() => {});
-    }
+  const heartbeat = setInterval(() => {
+    if (!isMessagingPage() || sellingPageVisitedThisSession) return;
+    console.log("in beatt");
+    Promise.all([
+      _storage.get(SESSION_FLAG_KEY),
+      readPersistedListings(),
+    ]).then(([flagData, stored]) => {
+      const ts = flagData[SESSION_FLAG_KEY];
+      if (ts && (Date.now() - ts) < 8 * 3600 * 1000) {
+        storedSellingListings = normalizeSelling(stored.selling);
+        sellingPageVisitedThisSession = true;
+        sellingListingsLowerCase = getSellingListingsLowercase();
+        clearInterval(heartbeat);  // ← Stop permanently, job is done
+        console.log("[MP Filter] Session flag found via heartbeat — activating filter.");
+        refreshListings();
+      }
+    }).catch(() => {});
   }, 1500);
+
 
   // ── SPA navigation via pushState interception ──────────────────────────
   // Instead of watching DOM mutations to detect URL changes (expensive),
