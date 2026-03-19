@@ -649,23 +649,85 @@ import stylesCSS from './styles.css?inline'
   // ── Selling page hydration observer ───────────────────────────────────
 
   /**
+   * Scrolls the selling page down until all listing cards are loaded.
+   * Facebook lazy-loads cards as you scroll — this ensures tryScrapeSellingPage()
+   * sees the full list rather than just the first visible batch.
+   * Stops when card count stops increasing (no new cards rendered) or the
+   * scroll position doesn't change (true bottom reached).
+   */
+  async function scrollToLoadAllSellingListings() {
+    const main = document.querySelector(SELECTORS.sellingPageMain);
+    if (!main) return;
+
+    // Configuration
+    const SCROLL_DELAY = 1000; // Fallback wait when no loading indicator appears
+    const MAX_STALE_RETRIES = 3; // Raised from 2 — slow connections need more patience
+
+    const getCardCount = () => main.querySelectorAll(SELECTORS.sellingPageBtn).length;
+    const isLoading = () => !!document.querySelector('[aria-label="Loading..."]');
+
+    let staleCount = 0;
+    let lastCount = 0;
+
+    while (staleCount < MAX_STALE_RETRIES) {
+      const previousHeight = document.body.scrollHeight;
+
+      // 1. Perform the scroll
+      window.scrollTo(0, document.body.scrollHeight);
+
+      // 2. Brief pause so Facebook has time to render the loading indicator
+      // before we check for it — without this the isLoading() check fires
+      // before the loader has appeared and falls through to the fixed delay.
+      await new Promise(r => setTimeout(r, 300));
+
+      // 3. Wait for the loading indicator to clear if it appeared
+      if (isLoading()) {
+        const start = Date.now();
+        while (isLoading() && Date.now() - start < 8000) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+      } else {
+        // Loader never appeared — use fixed delay as fallback
+        await new Promise(r => setTimeout(r, SCROLL_DELAY));
+      }
+
+      // 4. Check for progress — both card count and page height
+      const newCount = getCardCount();
+      const newHeight = document.body.scrollHeight;
+
+      if (newCount > lastCount || newHeight > previousHeight) {
+        console.log(`[MP Filter] Loaded more listings: ${newCount} total.`);
+        lastCount = newCount;
+        staleCount = 0;
+      } else {
+        staleCount++;
+        console.log(`[MP Filter] No new listings. Attempt ${staleCount}/${MAX_STALE_RETRIES}.`);
+      }
+    }
+
+    console.log(`[MP Filter] Finished loading all listings: ${lastCount} total.`);
+  }
+
+  /**
    * Watches for the selling-page DOM to hydrate (listing cards appear).
-   * Once cards are detected, triggers the scraper once and cleans up.
-   * This replaces the heartbeat's time-based polling on the selling page.
+   * Once cards are detected, disconnects immediately then scrolls to load
+   * all listing cards before handing off to the scraper.
    */
   function observeSellingPageHydration() {
     if (!isSellingPage() || hasScrapedSellingPage) return;
 
-    let hydrationObserver;
-
-    hydrationObserver = new MutationObserver(() => {
+    const hydrationObserver = new MutationObserver(() => {
       // Check if listing cards have appeared (DOM hydrated)
       const buttons = document.querySelectorAll(SELECTORS.sellingPageBtn);
       if (buttons.length > 0) {
-        // DOM is hydrated — trigger scraper and clean up observer
-        tryScrapeSellingPage().then(() => {
-          if (hydrationObserver) hydrationObserver.disconnect();
-        });
+        // Disconnect immediately — scroll + scrape takes over from here.
+        // Disconnecting before the async work prevents the observer from
+        // re-firing on every DOM mutation during the scroll loop.
+        hydrationObserver.disconnect();
+        (async () => {
+          await scrollToLoadAllSellingListings();
+          await tryScrapeSellingPage();
+        })();
       }
     });
 
@@ -881,7 +943,6 @@ import stylesCSS from './styles.css?inline'
 
     // On selling page: mark session and watch for DOM hydration
     if (isSellingPage()) {
-      console.log("IN NAVIGATION FUNC SETTING OBSERVERS")
       markSellingPageVisited();
       observeSellingPageHydration();
     }
