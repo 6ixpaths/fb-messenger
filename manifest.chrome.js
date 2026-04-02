@@ -5,10 +5,12 @@ export default defineManifest(({ mode }) => ({
   name: mode === 'development' ? 'FB MARKETPLACE DEV' : 'FB Marketplace Chat Filter',
   version: '1.0.0',
   description: 'Filter chats',
-  permissions: ["storage", "tabs"],
+  permissions: ["storage", "tabs", "downloads"],
   host_permissions: [
     "https://www.facebook.com/*",
-    "https://www.messenger.com/*"
+    "https://www.messenger.com/*",
+    "https://app.openlane.ca/*",
+    "https://pub-us.kar-media.com/*"
   ],
   background: {
     service_worker: 'src/background.js',
@@ -22,6 +24,11 @@ export default defineManifest(({ mode }) => ({
         "https://www.messenger.com/*"
       ],
       js: ["src/content.js"],
+      run_at: "document_idle"
+    },
+    {
+      matches: ["https://app.openlane.ca/*"],
+      js: ["src/openlane.js"],
       run_at: "document_idle"
     }
   ],

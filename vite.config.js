@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, build as viteBuild } from 'vite'
 import { crx } from '@crxjs/vite-plugin'
 import fs from 'fs'
 import path from 'path'
@@ -21,6 +21,25 @@ const firefoxPlugin = {
 
     // Copy styles.css for Firefox
     fs.copyFileSync('src/styles.css', path.join(outDir, 'styles.css'))
+
+  },
+  async closeBundle() {
+    // Build openlane.js as a separate IIFE bundle
+    await viteBuild({
+      configFile: false,
+      build: {
+        outDir,
+        emptyOutDir: false,
+        rollupOptions: {
+          input: 'src/openlane.js',
+          output: {
+            dir: outDir,
+            entryFileNames: 'openlane.js',
+            format: 'iife',
+          },
+        },
+      },
+    })
   },
 }
 

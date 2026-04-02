@@ -23,6 +23,24 @@ function reloadMatchingTabs() {
   })
 }
 
+// Handle download requests from content scripts (bypasses CSP blob: restrictions)
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === 'download' && msg.url && msg.filename) {
+    chrome.downloads.download({
+      url: msg.url,
+      filename: msg.filename,
+      saveAs: false,
+    }, (downloadId) => {
+      if (chrome.runtime.lastError) {
+        console.error('[OL Downloader] Download failed:', chrome.runtime.lastError)
+      } else {
+        console.log('[OL Downloader] Download started:', downloadId)
+      }
+    })
+    sendResponse({ ok: true })
+  }
+})
+
 self.addEventListener('activate', (event) => {
   console.log('[MP Filter] SW activate → reloading tabs')
   event.waitUntil(reloadMatchingTabs())
