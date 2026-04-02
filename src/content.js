@@ -489,8 +489,24 @@ import stylesCSS from './styles.css?inline'
         const isBuying = isBuyingDom ?? (!rowName || !sellingListingsLowerCase?.has(rowName));
         shouldShow = isBuying && (!query || !!rowName?.includes(query));
       } else if (listing) {
-        const isNotBuying = isBuyingDom === null || !isBuyingDom;
-        shouldShow = isNotBuying && rowName === listing.toLowerCase();
+        // Normalize both sides: collapse whitespace, trim, lowercase.
+        // Handles invisible Unicode differences between the selling page
+        // aria-label and the thread textContent.
+        const normalize = str => str?.toLowerCase().trim().replace(/\s+/g, ' ') ?? '';
+        const normalizedRow = normalize(rowName);
+        const normalizedListing = normalize(listing);
+
+        // Match if equal OR if one is a prefix of the other — covers cases
+        // where Facebook truncates long listing titles in the thread UI.
+        const nameMatches = normalizedRow === normalizedListing
+          || normalizedListing.startsWith(normalizedRow)
+          || normalizedRow.startsWith(normalizedListing);
+
+        // Name match takes priority over isBuyingThread() classification.
+        // The dropdown only contains selling listings, so a matching name
+        // IS a selling thread — buying heuristics can misfire on threads
+        // with square product thumbnails (s133x133 false positive).
+        shouldShow = nameMatches;
       } else if (sellingListingsLowerCase) {
         shouldShow = !!rowName && sellingListingsLowerCase.has(rowName);
       }
@@ -615,10 +631,22 @@ import stylesCSS from './styles.css?inline'
     const threads = getThreadItems();
     const sellSet = sellingListingsLowerCase;
 
+    const normalize = str => str?.toLowerCase().trim().replace(/\s+/g, ' ') ?? '';
+
     const getCount = (listing) => threads.filter(({ row }) => {
-      const name = extractListingName(parseThreadName({ row }))?.toLowerCase();
-      const isBuying = isBuyingThread(row) ?? (!name || !sellSet?.has(name));
-      return listing === "BUYING_LISTINGS" ? isBuying : (!isBuying && name === listing.toLowerCase());
+      const rawName = extractListingName(parseThreadName({ row }));
+      const nameLower = rawName?.toLowerCase();
+      const isBuying = isBuyingThread(row) ?? (!nameLower || !sellSet?.has(nameLower));
+
+      if (listing === "BUYING_LISTINGS") return isBuying;
+
+      // Mirror filterListing() — normalize and use prefix matching so
+      // truncated thread titles and whitespace differences still count.
+      const normalizedRow = normalize(rawName);
+      const normalizedListing = normalize(listing);
+      return normalizedRow === normalizedListing
+        || normalizedListing.startsWith(normalizedRow)
+        || normalizedRow.startsWith(normalizedListing);
     }).length;
 
     // 3. Build Options via Template Strings
