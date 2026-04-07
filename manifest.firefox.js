@@ -3,7 +3,11 @@ export default {
   name: 'FB MARKETPLACE DEV',
   version: '1.0.0',
   description: 'Filter chats',
-  permissions: ["storage"],
+  permissions: [
+    "storage",
+    "downloads",
+    "https://pub-us.kar-media.com/*"
+  ],
   content_scripts: [
     {
       matches: [
@@ -12,6 +16,11 @@ export default {
         "https://www.messenger.com/*"
       ],
       js: ["content.js"],
+      run_at: "document_idle"
+    },
+    {
+      matches: ["https://app.openlane.ca/*"],
+      js: ["openlane.js"],
       run_at: "document_idle"
     }
   ],
