@@ -44,44 +44,82 @@ The extension injects a filter bar below the "Marketplace" heading in your Messe
 
 **Lazy loading support:** A MutationObserver watches for new threads being added to the DOM and automatically refreshes the listings dropdown.
 
-## Installation
+## Installation & Development
 
-### Chrome (Manifest V3)
+This project uses **Vite** with **CRXJS** for building and **HMR** (Hot Module Replacement) for instant development reloads.
 
+### Setup
+
+```bash
+npm install
+```
+
+### Development
+
+**Chrome (with HMR):**
+```bash
+npm run dev
+```
+Then load `dist-chrome/` as an unpacked extension in `chrome://extensions/`.
+
+Changes to `src/content.js` or `src/styles.css` automatically trigger HMR and reload the extension!
+
+**Firefox (with auto-reload):**
+```bash
+npm run dev:firefox
+```
+This does an initial build, then runs Vite in watch mode and `web-ext` in parallel. `web-ext` launches Firefox automatically with the extension loaded and **reloads it whenever `dist-firefox/` changes** — no manual steps needed.
+
+> **First time setup:** Check `web-ext-config.mjs` and update the `firefox` path if needed (e.g. if you use Firefox Release instead of Developer Edition).
+
+### Building for Production
+
+**Chrome:**
+```bash
+npm run build
+```
+
+**Firefox:**
+```bash
+npm run build:firefox
+```
+
+Output appears in `dist-chrome/` or `dist-firefox/` depending on the target.
+
+### Manual Installation (without Vite)
+
+**Chrome (Manifest V3):**
 1. Open `chrome://extensions/`
 2. Enable **Developer mode** (toggle in top-right corner)
 3. Click **Load unpacked**
-4. Select the **root folder** of this project (the one containing `manifest.json`, `content.js`, etc.)
+4. Select the `dist-chrome/` folder (after running `npm run build`)
 5. Navigate to [Facebook Marketplace Messages](https://www.facebook.com/marketplace/)
-6. The filter bar will appear below the "Marketplace" heading
 
-**Note:** The extension will show as "Unpacked" and may show a warning about not being from the Chrome Web Store. This is normal for development/local extensions.
-
-### Firefox (Manifest V2)
-
+**Firefox (Manifest V2):**
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on...**
-3. Navigate to the **root folder** and select **`manifest.firefox.json`**
-4. Firefox will ask for permission to access facebook.com — accept it
-5. Navigate to [Facebook Marketplace Messages](https://www.facebook.com/marketplace/)
-6. The filter bar will appear below the "Marketplace" heading
+3. Select `dist-firefox/manifest.json` (after running `npm run build:firefox`)
+4. Navigate to [Facebook Marketplace Messages](https://www.facebook.com/marketplace/)
 
-**Note:** Temporary add-ons are removed when Firefox restarts. To make it permanent, you'd need to sign the extension and have it reviewed by Mozilla (outside the scope of this guide).
-
-## Files
+## Project Structure
 
 ```
-├── manifest.json          # Chrome extension config (Manifest V3)
-├── manifest.firefox.json  # Firefox extension config (Manifest V2)
-├── content.js             # Main filtering logic & UI (shared)
-├── styles.css             # Filter bar styling (shared)
-├── icon48.png             # Extension icon (48×48px)
-├── icon128.png            # Extension icon (128×128px)
-└── test/                  # Test page with mock data
-    └── index.html
+fb-messenger/
+├── src/
+│   ├── content.js         # Main extension logic (content script)
+│   └── styles.css         # Filter bar styling
+├── manifest.chrome.js     # Chrome MV3 manifest config
+├── manifest.firefox.js    # Firefox MV2 manifest config
+├── vite.config.js         # Vite build configuration
+├── web-ext-config.mjs     # Firefox binary path + web-ext defaults
+├── package.json           # Dependencies & scripts
+├── test/
+│   └── index.html         # Local test page
+├── dist-chrome/           # Chrome build output (generated, gitignored)
+└── dist-firefox/          # Firefox build output (generated, gitignored)
 ```
 
-Both `manifest.json` and `manifest.firefox.json` reference the same `content.js`, `styles.css`, and icons — there is no duplicated code.
+The `src/` files are shared between both browsers. The `BROWSER` env var controls which manifest and output folder Vite uses.
 
 ## How the extension finds listings
 

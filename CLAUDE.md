@@ -6,19 +6,38 @@ A browser extension (Chrome MV3 + Firefox MV2) that injects a filter dropdown in
 Facebook Messenger/Marketplace chat sidebar. The dropdown is populated exclusively from
 listings scraped off the user's own selling page, letting them filter chats by listing name.
 
+Built with **Vite** + **CRXJS** for streamlined development with HMR (Hot Module Replacement)
+on Chrome and efficient builds for both browsers.
+
 ## File Structure
 
 ```
 fb-messenger/
-├── content.js              # All extension logic (single content script)
-├── styles.css              # Injected CSS for the filter bar
-├── manifest.json           # Chrome MV3 manifest
-├── manifest.firefox.json   # Firefox MV2 manifest (used when building for Firefox)
+├── src/
+│   ├── content.js             # Main extension logic (content script)
+│   └── styles.css             # Injected CSS for the filter bar
+├── manifest.chrome.js         # Chrome MV3 manifest (CRXJS config)
+├── manifest.firefox.js        # Firefox MV2 manifest (plain object)
+├── vite.config.js             # Vite build config (conditionally loads manifests)
+├── web-ext-config.mjs         # Firefox binary path + web-ext run defaults
+├── package.json               # Dependencies: vite, @crxjs/vite-plugin, web-ext, concurrently
+├── test/
+│   └── index.html             # Local test page (no extension APIs needed)
+├── dist-chrome/               # Chrome build output (generated, gitignored)
+├── dist-firefox/              # Firefox build output (generated, gitignored)
 ├── icon48.png
 ├── icon128.png
-└── test/
-    └── index.html          # Local test page (no extension APIs needed)
+└── CLAUDE.md                  # This file
 ```
+
+## Build System
+
+### Vite + CRXJS
+
+- **Chrome dev server** (`npm run dev`): Uses CRXJS plugin with HMR for instant reloads
+- **Firefox dev server** (`npm run dev:firefox`): Standard Vite bundling (HMR not applicable to MV2)
+- **Conditional manifest loading**: `BROWSER` env var controls which manifest is used
+- **Shared source**: Single `src/` folder builds to both Chrome MV3 and Firefox MV2
 
 ## User Flow
 
@@ -100,43 +119,82 @@ Three paths restore the flag in a chat-page tab:
 If the extension stops working, the most likely cause is Facebook changing one of these
 selectors. Check the browser console for `[MP Filter]` log lines to diagnose.
 
-## Test Page (`test/index.html`)
+## Development Workflow
 
-- Set `data-mp-filter-test="true"` on `<html>` to enable test mode.
-- In test mode, `isSellingPage()` matches `/marketplace/you/selling` paths; all other paths
-  act as messaging pages.
-- `_storage` falls back to a `window.sessionStorage` shim so storage calls work without
-  the extension API.
-- Load by opening the file directly in a browser — no server needed.
+### Chrome (with HMR)
 
-## Loading the Extension
+```bash
+npm run dev
+```
 
-### Chrome
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked** → select this directory
-4. After any code change: click the **↺** reload icon on the extension card
+1. Vite dev server starts on port 5173 (or next available)
+2. Open `chrome://extensions` → Enable Developer Mode
+3. Click **Load unpacked** → select the `dist-chrome/` folder
+4. Edit `src/content.js` or `src/styles.css` → changes **instantly reload** the extension via HMR
+5. No manual reload needed!
 
-### Firefox
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click **Load Temporary Add-on…** → select `manifest.firefox.json`
-3. After any code change: click **Reload** on the extension card
+### Firefox (with auto-reload via web-ext)
 
-> **Note:** Firefox uses `manifest.firefox.json` (MV2). Chrome uses `manifest.json` (MV3).
-> Firefox temporary add-ons are removed when the browser restarts.
+```bash
+npm run dev:firefox
+```
+
+1. Does an initial `build:firefox` to populate `dist/`
+2. Starts two parallel processes via `concurrently`:
+   - **Vite** in `--watch` mode — rebuilds `dist/` on every source file change
+   - **web-ext** — launches Firefox with the extension loaded, watches `dist/` and **automatically reloads the extension + re-injects the content script** whenever Vite writes a new build
+3. Firefox opens automatically — no manual loading required
+4. Edit `src/content.js` or `src/styles.css` → Firefox reflects the change within ~1 second
+
+**Note:** No in-place HMR (MV2 limitation), but the full reload cycle is effectively instant.
+
+**Firefox binary path:** Configured in `web-ext-config.mjs`. Update the `firefox` key if your Firefox is installed at a different path (see comments in the file for common paths).
+
+### Production Builds
+
+```bash
+npm run build        # Chrome MV3  → dist-chrome/
+npm run build:firefox # Firefox MV2 → dist-firefox/
+```
+
+## vite.config.js — Build Configuration
+
+The config conditionally applies build settings based on `BROWSER` env var:
+
+- **Chrome**: Uses `crx()` plugin from CRXJS for automatic HMR + service worker setup
+- **Firefox**: Uses custom `firefoxPlugin` to write `manifest.json` and copy `styles.css` after each build; Rollup outputs `content.js` as IIFE to `dist/`
+- **CORS**: Both `chrome-extension://` and `moz-extension://` origins allowed for HMR
+
+## web-ext-config.mjs
+
+Configures `web-ext run` defaults (used by `npm run dev:firefox`):
+
+- **`run.firefox`** — path to the Firefox binary; update this if Firefox is installed elsewhere
+- **`run.startUrl`** — opens `about:debugging` on launch so the extension is visible immediately
+
+`web-ext` is not used for production builds — only during development.
+
+## CSS Handling
+
+Styles are imported as inline CSS in `src/content.js`:
+```javascript
+import stylesCSS from './styles.css?inline'
+```
+
+The `injectStyles()` function in the IIFE injects the CSS into `document.head` on page load.
 
 ## Development Notes
 
-- **No build step.** `content.js` is a plain IIFE; edit and reload.
-- **Debounce.** The MutationObserver on the chat grid debounces at 300 ms to avoid
-  redundant re-renders while threads lazy-load.
+- **Content script bundling**: `src/content.js` is a self-contained IIFE that bundles all logic
+- **Debounce**: The MutationObserver on the chat grid debounces at 300 ms to avoid
+  redundant re-renders while threads lazy-load
 - **`captureOpenChatListing()`** supplements storage with any open-chat selling listings
   the scraper may have missed (e.g., sold items no longer on the selling page). It does
   **not** add thread-parsed listings to the dropdown unless they also appear in stored
-  selling data.
+  selling data
 - **`getUniqueListings()`** intersects thread names with stored selling names — the
-  dropdown never shows thread names that aren't in the stored selling list.
+  dropdown never shows thread names that aren't in the stored selling list
 - **`normalizeSelling(arr)`** converts legacy `string` entries in storage to
-  `{ name, listedOn: null }` objects for backward compatibility.
+  `{ name, listedOn: null }` objects for backward compatibility
 - **ACTION_PREFIXES** must stay in sync with Facebook's aria-label patterns for selling-page
-  action buttons (e.g., "Mark as sold ", "Share ", "More options for ").
+  action buttons (e.g., "Mark as sold ", "Share ", "More options for ")
