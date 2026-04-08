@@ -5,6 +5,25 @@ import openlaneCSS from './openlane.css?inline'
   const LOG = '[OL Downloader]'
   let downloadBtnInjected = false
 
+  /* ── Tag-name helpers ───────────────────────────────────
+   * Openlane uses Stencil-scoped custom elements whose tag names carry a
+   * build hash (e.g. ignite-typography-7x-42y-0z, …-8x-5y-4z, etc.) that
+   * changes every release.  We cannot hardcode the suffix — match by
+   * tag-name prefix instead.
+   */
+  function queryByTagPrefix(root, prefix) {
+    const p = prefix.toLowerCase()
+    return Array.from(root.querySelectorAll('*')).find(
+      el => el.tagName.toLowerCase().startsWith(p)
+    ) || null
+  }
+  function queryAllByTagPrefix(root, prefix) {
+    const p = prefix.toLowerCase()
+    return Array.from(root.querySelectorAll('*')).filter(
+      el => el.tagName.toLowerCase().startsWith(p)
+    )
+  }
+
   /* ── Inject styles ──────────────────────────────────────── */
   function injectStyles() {
     if (document.getElementById('ol-dl-styles')) return
@@ -20,7 +39,7 @@ import openlaneCSS from './openlane.css?inline'
     const categories = []
 
     sections.forEach(section => {
-      const typo = section.querySelector('ignite-typography-7x-42y-0z')
+      const typo = queryByTagPrefix(section, 'ignite-typography-')
       if (!typo) return
       const label = typo.textContent.trim().toLowerCase()
 
@@ -37,8 +56,15 @@ import openlaneCSS from './openlane.css?inline'
         const videoSlots = section.querySelectorAll('.image')
         categories.push({ type, label: typo.textContent.trim(), ids: [], videoCount: videoSlots.length, mediaType })
       } else {
-        const images = section.querySelectorAll('.image ignite-photo-7x-42y-0z')
-        const ids = Array.from(images).map(el => parseInt(el.id, 10)).filter(n => !isNaN(n))
+        const imageSlots = section.querySelectorAll('.image')
+        const ids = []
+        imageSlots.forEach(slot => {
+          const photo = queryByTagPrefix(slot, 'ignite-photo-')
+          if (photo) {
+            const n = parseInt(photo.id, 10)
+            if (!isNaN(n)) ids.push(n)
+          }
+        })
         categories.push({ type, label: typo.textContent.trim(), ids, mediaType: 'image' })
       }
     })
@@ -77,8 +103,10 @@ import openlaneCSS from './openlane.css?inline'
 
   /* ── Build selection panel ──────────────────────────────── */
   function buildSelectionPanel(modal, categories, mediaUrls) {
+    // Remove any leftover panel from a previous modal — the panel lives on
+    // document.body, so it isn't cleaned up when the Openlane modal closes.
     const existing = document.querySelector('.ol-dl-panel')
-    if (existing) { existing.remove(); return }
+    if (existing) existing.remove()
 
     const panel = document.createElement('div')
     panel.className = 'ol-dl-panel'
@@ -180,8 +208,19 @@ import openlaneCSS from './openlane.css?inline'
     footer.appendChild(dlBtn)
     panel.appendChild(footer)
 
-    // Insert panel as a full-screen overlay
-    document.body.appendChild(panel)
+    // Overlay the gallery sidebar (not the full screen).  Fall back to body
+    // if the sidebar isn't found for some reason.
+    const sidebar = modal.querySelector('.modal__sidebar')
+    if (sidebar) {
+      // Ensure the sidebar can host an absolutely-positioned child without
+      // altering its own layout.
+      if (getComputedStyle(sidebar).position === 'static') {
+        sidebar.style.position = 'relative'
+      }
+      sidebar.appendChild(panel)
+    } else {
+      document.body.appendChild(panel)
+    }
   }
 
   /* ── Download selected media as ZIP ─────────────────────── */
@@ -195,7 +234,8 @@ import openlaneCSS from './openlane.css?inline'
     dlBtn.textContent = 'Fetching media…'
 
     // Get vehicle name from modal header for zip filename
-    const titleEl = modal.querySelector('.modal__header ignite-typography-7x-42y-0z')
+    const header = modal.querySelector('.modal__header')
+    const titleEl = header ? queryByTagPrefix(header, 'ignite-typography-') : null
     const vehicleName = titleEl ? titleEl.textContent.trim() : 'vehicle'
 
     const zip = new JSZip()
@@ -332,6 +372,11 @@ import openlaneCSS from './openlane.css?inline'
         if (modalRoot && !modalRoot.querySelector('.ol-dl-btn')) {
           injectDownloadButton(modalRoot)
         }
+      } else {
+        // Modal is gone — drop any leftover selection panel so it doesn't
+        // overlay the next page.
+        const stalePanel = document.querySelector('.ol-dl-panel')
+        if (stalePanel) stalePanel.remove()
       }
     })
 
