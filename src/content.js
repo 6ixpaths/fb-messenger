@@ -485,7 +485,9 @@ import stylesCSS from './styles.css?inline'
 
       let shouldShow = true;
 
-      if (listing === "BUYING_LISTINGS") {
+      if (listing === "ALL_LISTINGS") {
+        shouldShow = true;
+      } else if (listing === "BUYING_LISTINGS") {
         const isBuying = isBuyingDom ?? (!rowName || !sellingListingsLowerCase?.has(rowName));
         shouldShow = isBuying && (!query || !!rowName?.includes(query));
       } else if (listing) {
@@ -522,7 +524,9 @@ import stylesCSS from './styles.css?inline'
   // Helper to keep the main function clean
   function updateFilterStatus(listing, count) {
     const q = buyingSearchQuery.trim();
-    if (listing === "BUYING_LISTINGS") {
+    if (listing === "ALL_LISTINGS") {
+      updateStatus(`Showing all ${count} chat(s)`);
+    } else if (listing === "BUYING_LISTINGS") {
       updateStatus(q ? `Showing ${count} result(s) for "${q}"` : `Showing ${count} buying chat(s)`);
     } else if (listing) {
       updateStatus(`Showing ${count} chat(s) for "${listing}"`);
@@ -547,7 +551,7 @@ import stylesCSS from './styles.css?inline'
                 Filters inactive — <a id="mp-chat-filter-info-link" href="https://www.facebook.com/marketplace/you/selling?state=LIVE&status%5B0%5D=IN_STOCK" target="_blank" rel="noopener noreferrer">Open your selling page</a> to load listings.
             </span>
             <select id="mp-chat-filter-select">
-                <option>Select a listing...</option>
+                <option value="ALL_LISTINGS">All listings</option>
             </select>
         </div>
         <div id="mp-chat-filter-search-row" style="display: none;">
@@ -572,9 +576,8 @@ import stylesCSS from './styles.css?inline'
     select.onchange = async (e) => {
         const val = e.target.value;
         const isBuying = val === "BUYING_LISTINGS";
-        searchRow.style.display = e.target.value === "BUYING_LISTINGS" ? "" : "none";
+        searchRow.style.display = isBuying ? "" : "none";
         if (!isBuying) {
-          console.log("NOT BUYING LISTING");
           buyingSearchQuery = "";
           const inp = document.getElementById("mp-chat-filter-search");
           if (inp) inp.value = "";
@@ -586,6 +589,8 @@ import stylesCSS from './styles.css?inline'
           // Scroll to pre-load threads before filtering so the search pool is full
           await scrollToLoadBuyingThreads();
           filterListing("BUYING_LISTINGS");
+        } else if (val === "ALL_LISTINGS") {
+          filterListing("ALL_LISTINGS");
         } else {
           filterListing(val || null);
         }
@@ -653,6 +658,7 @@ import stylesCSS from './styles.css?inline'
     const listOptions = listings.map(l => `<option value="${l}">${l} (${getCount(l)})</option>`).join('');
 
     select.innerHTML = `
+      <option value="ALL_LISTINGS">All listings</option>
       <option value="">My Listings (${listings.length})</option>
       ${listOptions}
       <option value="BUYING_LISTINGS">Buying Listings (${getCount("BUYING_LISTINGS")})</option>
@@ -660,11 +666,11 @@ import stylesCSS from './styles.css?inline'
 
     // 4. Restore State & Apply Filter
     const match = listings.find(l => l.toLowerCase() === prevVal.toLowerCase()) ||
-                  (["BUYING_LISTINGS", ""].includes(prevVal) ? prevVal : "");
+                  (["BUYING_LISTINGS", "", "ALL_LISTINGS"].includes(prevVal) ? prevVal : "ALL_LISTINGS");
 
     select.value = match;
     document.getElementById("mp-chat-filter-search-row").style.display = match === "BUYING_LISTINGS" ? "" : "none";
-    filterListing(match || null);
+    filterListing(match === "ALL_LISTINGS" ? "ALL_LISTINGS" : match || null);
   
     updateStatus(`${threads.length} thread(s), ${listings.length} listing(s) · ${storedSellingListings.length} listed`);
   }
