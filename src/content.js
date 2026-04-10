@@ -416,11 +416,14 @@ import stylesCSS from './styles.css?inline'
     if (!link) return false; // not a marketplace thread
 
     // Signal 1: thumbnail image src URL aspect-ratio hint
+    // s133x133 (square/profile crop) is a reliable buying signal.
+    // s296x100 (landscape crop) is NOT a reliable selling signal — buying threads
+    // can also use landscape product thumbnails, so we only use this as a
+    // positive buying indicator, never as a negative one.
     const img = link.querySelector("img");
     if (img) {
       const src = img.getAttribute("src") || "";
       if (src.includes("s133x133")) return true;  // square  → buying
-      if (src.includes("s296x100")) return false; // landscape → selling
     }
 
     // Signal 2: total <img> count in the row
