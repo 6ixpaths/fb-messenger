@@ -9,7 +9,6 @@ import stylesCSS from './styles.css?inline'
     threadList: 'div[aria-label="Thread list"]',
     chatGrid: 'div[aria-label="Chats"][role="grid"]',
     threadLink: 'a[href*="/marketplace/t/"]',
-    threadName: "span.x1lliihq.x193iq5w.x6ikm8r.x10wlt62.xlyipyv.xuxw1ft",
     sellingPageMain:
       'div[aria-label="Collection of your marketplace items"][role="main"]',
     sellingPageBtn: 'div[role="button"][aria-label]',
@@ -328,8 +327,16 @@ import stylesCSS from './styles.css?inline'
   }
 
   function parseThreadName(item) {
-    const spans = item.row.querySelectorAll(SELECTORS.threadName);
-    for (const span of spans) {
+    // Primary: aria-label on the thread link is stable across FB CSS changes.
+    // Format: "Group chat: Name · Listing Title"
+    const link = item.row.querySelector(SELECTORS.threadLink);
+    if (link) {
+      const label = link.getAttribute("aria-label") || "";
+      const stripped = label.replace(/^Group chat:\s*/i, "").trim();
+      if (stripped.includes(SEPARATOR)) return stripped;
+    }
+    // Fallback: scan all spans for the one containing the separator
+    for (const span of item.row.querySelectorAll("span")) {
       const text = span.textContent.trim();
       if (text.includes(SEPARATOR)) return text;
     }
