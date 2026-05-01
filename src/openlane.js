@@ -243,7 +243,18 @@ import openlaneCSS from './openlane.css?inline'
     let added = 0
     const categoryCounters = {}
 
-    for (const cb of checked) {
+    const CATEGORY_ORDER = { overview: 0, condition: 1, video: 2 }
+    const sorted = Array.from(checked).sort((a, b) =>
+      (CATEGORY_ORDER[a.dataset.category] ?? 99) - (CATEGORY_ORDER[b.dataset.category] ?? 99)
+    )
+
+    // Base date used to stamp each file with a sequentially later timestamp.
+    // This guarantees ascending order (overview → condition → video, 1…N within
+    // each category) when the ZIP is viewed sorted by "last modified".
+    const BASE_DATE = new Date('2000-01-01T00:00:00')
+    let fileSeq = 0
+
+    for (const cb of sorted) {
       const index = cb.dataset.imgIndex
       const category = cb.dataset.category
       const media = mediaUrls[index]
@@ -278,7 +289,9 @@ import openlaneCSS from './openlane.css?inline'
           ext = contentType.includes('png') ? 'png' : 'jpg'
         }
         const filename = `${category}_${categoryCounters[category]}.${ext}`
-        zip.file(filename, buf)
+        const fileDate = new Date(BASE_DATE.getTime() + fileSeq * 1000)
+        fileSeq++
+        zip.file(filename, buf, { date: fileDate })
         added++
         console.log(LOG, `Added ${filename} (${buf.byteLength} bytes)`)
       } catch (err) {
