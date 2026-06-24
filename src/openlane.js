@@ -237,6 +237,9 @@ import openlaneCSS from './openlane.css?inline'
     const header = modal.querySelector('.modal__header')
     const titleEl = header ? queryByTagPrefix(header, 'ignite-typography-') : null
     const vehicleName = titleEl ? titleEl.textContent.trim() : 'vehicle'
+    const carouselEl = queryByTagPrefix(document, 'ignite-photo-carousel-')
+    const vin = carouselEl ? carouselEl.getAttribute('vin') : null
+    const vinSuffix = vin ? vin.slice(-6) : ''
 
     const zip = new JSZip()
     let completed = 0
@@ -319,16 +322,16 @@ import openlaneCSS from './openlane.css?inline'
       // Use chrome.downloads API if available (bypasses CSP blob: restrictions)
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
         chrome.runtime.sendMessage(
-          { action: 'download', url: dataUrl, filename: `${vehicleName}.zip` },
+          { action: 'download', url: dataUrl, filename: `${vehicleName} ${vinSuffix}.zip` },
           (resp) => {
             if (chrome.runtime.lastError) {
               console.error(LOG, 'Download message failed:', chrome.runtime.lastError)
-              fallbackDownload(dataUrl, vehicleName)
+              fallbackDownload(dataUrl, vehicleName, vinSuffix)
             }
           }
         )
       } else {
-        fallbackDownload(dataUrl, vehicleName)
+        fallbackDownload(dataUrl, vehicleName, vinSuffix)
       }
     } catch (err) {
       console.error(LOG, 'Failed to generate ZIP:', err)
@@ -338,10 +341,10 @@ import openlaneCSS from './openlane.css?inline'
     dlBtn.disabled = false
   }
 
-  function fallbackDownload(dataUrl, vehicleName) {
+  function fallbackDownload(dataUrl, vehicleName, vinSuffix = '') {
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `${vehicleName}.zip`
+    a.download = `${vehicleName} ${vinSuffix}.zip`
     document.body.appendChild(a)
     a.click()
     a.remove()
