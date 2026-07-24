@@ -38,6 +38,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
     })
     sendResponse({ ok: true })
+    return
+  }
+
+  // Relay for the openlane.js content script: content scripts run in the
+  // page's origin and are subject to ordinary mixed-content blocking, so an
+  // https://app.openlane.ca page can't fetch() http://127.0.0.1. Only this
+  // privileged background context gets the host_permissions bypass.
+  if (msg.type === 'PUSH_OPENLANE_TOKEN' && msg.token) {
+    fetch('http://127.0.0.1:8000/openlane/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken: msg.token,
+        source: 'firefox-extension',
+        timestamp: Date.now(),
+      }),
+    })
+      .then((response) => {
+        console.log('[OL Downloader] Token push status:', response.status)
+        sendResponse({ ok: response.ok, status: response.status })
+      })
+      .catch((err) => {
+        console.error('[OL Downloader] Token push failed:', err)
+        sendResponse({ ok: false, error: String(err) })
+      })
+    return true // keep the message channel open for the async response
   }
 })
 

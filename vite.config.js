@@ -40,6 +40,23 @@ const firefoxPlugin = {
         },
       },
     })
+
+    // Build background.js as a separate IIFE bundle (MV2 background script)
+    await viteBuild({
+      configFile: false,
+      build: {
+        outDir,
+        emptyOutDir: false,
+        rollupOptions: {
+          input: 'src/background.js',
+          output: {
+            dir: outDir,
+            entryFileNames: 'background.js',
+            format: 'iife',
+          },
+        },
+      },
+    })
   },
 }
 

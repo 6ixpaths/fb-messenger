@@ -407,11 +407,73 @@ import openlaneCSS from './openlane.css?inline'
     }
   }
 
+  function getAccessToken() {
+    try {
+      // 1. Fetch raw string from page's localStorage
+      const rawData = window.localStorage.getItem('dmp-okta-token');
+      if (!rawData) return null;
+
+      // 2. Parse JSON
+      const parsedData = JSON.parse(rawData);
+
+      // 3. Return accessToken
+      return parsedData?.accessToken || null;
+    } catch (error) {
+      console.error('Failed to extract token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Sends the extracted access token to the local Django receiver via the
+   * background script. A content script fetch here would run under the
+   * page's https://app.openlane.ca origin and get blocked as mixed content
+   * — only the privileged background context can reach http://127.0.0.1.
+   * @param {string} token - The OAuth/Okta access token.
+   * @returns {Promise<boolean>} - Resolves to true if the request succeeded.
+   */
+  async function sendTokenToLoopback(token) {
+    if (!token) {
+      console.error('No token provided to sendTokenToLoopback.');
+      return false;
+    }
+
+    try {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'PUSH_OPENLANE_TOKEN', token }, (resp) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(resp);
+          }
+        });
+      });
+
+      if (response && response.ok) {
+        console.log('Successfully transmitted token to loopback receiver.');
+        return true;
+      } else {
+        console.error(`Failed to send token. Server responded with status: ${response && response.status}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('Network error connecting to local Django receiver:', error);
+      return false;
+    }
+  }
+
   /* ── Init ───────────────────────────────────────────────── */
   function init() {
     injectStyles()
     observeGalleryModal()
+
     console.log(LOG, 'Initialized')
+
+    const accessToken = getAccessToken();
+    console.log('Access Token:', accessToken);
+    if (accessToken) {
+      sendTokenToLoopback(accessToken);
+    }
   }
 
   if (document.readyState === 'loading') {

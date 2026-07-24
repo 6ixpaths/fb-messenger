@@ -10,7 +10,7 @@
 
 export default {
   run: {
-    firefox: '/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox',
+    firefox: '/opt/firefox-dev/firefox',
     startUrl: ['about:debugging#/runtime/this-firefox'],
   },
 }
