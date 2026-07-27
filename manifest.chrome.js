@@ -2,7 +2,7 @@ import { defineManifest } from '@crxjs/vite-plugin'
 
 export default defineManifest(({ mode }) => ({
   manifest_version: 3,
-  name: mode === 'development' ? 'FB MARKETPLACE DEV' : 'FB Marketplace Chat Filter',
+  name: 'NEXLANE DMS',
   version: '1.0.0',
   description: 'Filter chats',
   permissions: ["storage", "tabs", "downloads"],

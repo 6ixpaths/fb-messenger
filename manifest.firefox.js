@@ -1,6 +1,6 @@
 export default {
   manifest_version: 2,
-  name: 'FB MARKETPLACE DEV',
+  name: 'NEXLANE DMS',
   version: '1.0.0',
   description: 'Filter chats',
   permissions: [
